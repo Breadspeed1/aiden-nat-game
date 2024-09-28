@@ -28,9 +28,6 @@ fn main() {
 #[derive(Component)]
 struct Player;
 
-#[derive(Component, Debug)]
-struct CanJump(bool);
-
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
     camera_bundle.projection.scaling_mode = ScalingMode::FixedVertical(10.);
@@ -70,7 +67,6 @@ fn spawn_player(mut commands: Commands) {
         Gravity(-9.8 * 10.),
         Collider::new(Vec2::new(1., 1.), true),
         Velocity::default(),
-        CanJump(false),
         SpriteBundle {
             sprite: Sprite {
                 color: Color::srgb(0., 0.47, 1.),

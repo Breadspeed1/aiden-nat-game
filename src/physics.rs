@@ -1,4 +1,4 @@
-use bevy::{prelude::*, utils::HashSet};
+use bevy::prelude::*;
 use enum_ordinalize::Ordinalize;
 
 #[derive(Component, Default, Debug)]
@@ -9,16 +9,8 @@ impl Velocity {
         (self.0 * delta_time).extend(0.)
     }
 
-    pub fn reset(&mut self) {
-        self.0 *= 0.;
-    }
-
     pub fn add(&mut self, other: Vec2) {
         self.0 += other;
-    }
-
-    pub fn set(&mut self, other: Vec2) {
-        self.0 = other;
     }
 }
 
@@ -95,14 +87,14 @@ pub fn handle_gravity(time: Res<Time>, mut objects: Query<(&Gravity, &mut Veloci
     }
 }
 
-pub fn handle_coliders(mut objects: Query<(&mut Velocity, &mut Transform, &mut Collider)>) {
-    for (_, _, mut collider) in &mut objects {
+pub fn handle_coliders(mut objects: Query<(&mut Transform, &mut Collider)>) {
+    for (_, mut collider) in &mut objects {
         collider.clear_colliding_side();
     }
 
     let mut iter = objects.iter_combinations_mut();
 
-    while let Some([(mut v1, mut t1, mut c1), (mut v2, mut t2, mut c2)]) = iter.fetch_next() {
+    while let Some([(mut t1, mut c1), (mut t2, mut c2)]) = iter.fetch_next() {
         let distance = t2.translation - t1.translation;
         let colliding = c1.check_is_colliding(c2.as_ref(), distance.x.abs(), distance.y.abs());
 
