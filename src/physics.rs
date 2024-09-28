@@ -87,7 +87,7 @@ pub fn handle_gravity(time: Res<Time>, mut objects: Query<(&Gravity, &mut Veloci
 
     for (gravity, mut velocity, collider) in &mut objects {
         if collider.check_colliding_side(CollidingSide::Bottom) {
-            velocity.0.y = velocity.0.y.max(-0.1);
+            velocity.0.y = velocity.0.y.max(-0.01);
             continue;
         }
 
@@ -139,34 +139,14 @@ pub fn handle_coliders(mut objects: Query<(&mut Velocity, &mut Transform, &mut C
                     t2.translation -= move_amount / 2.;
                     t1.translation += move_amount / 2.;
 
-                    if x_min {
-                        v2.0.x = 0.;
-                        v1.0.x = 0.;
-                    }
-                    else {
-                        v2.0.y = 0.;
-                        v1.0.y = 0.;
-                    }
                 },
                 (true, false) => {
                     t1.translation += move_amount;
 
-                    if x_min {
-                        v1.0.x = 0.;
-                    }
-                    else {
-                        v1.0.y = 0.;
-                    }
                 },
                 (false, true) => {
                     t2.translation -= move_amount;
 
-                    if x_min {
-                        v2.0.x = 0.;
-                    }
-                    else {
-                        v2.0.y = 0.;
-                    }
                 },
                 (false, false) => (),
             }
