@@ -105,6 +105,7 @@ fn spawn_floor(mut commands: Commands) {
                 custom_size: Some(Vec2::new(10., 1.)),
                 ..default()
             },
+            transform: Transform::from_translation(Vec3::new(0., -2., 0.)),
             ..default()
         }
     ));
