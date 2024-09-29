@@ -10,7 +10,7 @@ const INPUT_JUMP: u8 = 1 << 2;
 pub fn read_local_inputs(
     mut commands: Commands,
     keys: Res<ButtonInput<KeyCode>>,
-    local_players: Res<LocalPlayers>
+    local_players: Res<LocalPlayers>,
 ) {
     let mut local_inputs = HashMap::new();
 
@@ -36,18 +36,24 @@ pub fn read_local_inputs(
 pub fn handle_window_resize(
     keys: Res<ButtonInput<KeyCode>>,
     mut windows: Query<&mut Window>,
-    mut resolution_settings: ResMut<WindowScale>
+    mut resolution_settings: ResMut<WindowScale>,
 ) {
     let mut window = windows.single_mut();
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::Equal) {
         let scale = resolution_settings.increase();
-        window.resolution.set(MIN_WINDOW_SIZE * scale as f32, MIN_WINDOW_SIZE * scale as f32)
+        window.resolution.set(
+            MIN_WINDOW_SIZE * scale as f32,
+            MIN_WINDOW_SIZE * scale as f32,
+        )
     }
 
     if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::Minus) {
         let scale = resolution_settings.decrease();
-        window.resolution.set(MIN_WINDOW_SIZE * scale as f32, MIN_WINDOW_SIZE * scale as f32)
+        window.resolution.set(
+            MIN_WINDOW_SIZE * scale as f32,
+            MIN_WINDOW_SIZE * scale as f32,
+        )
     }
 }
 

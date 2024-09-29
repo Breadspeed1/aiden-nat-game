@@ -1,7 +1,5 @@
 use bevy::prelude::Resource;
 
-
-
 #[derive(Debug, Resource)]
 pub struct WindowScale(pub u32);
 

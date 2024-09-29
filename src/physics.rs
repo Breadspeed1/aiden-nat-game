@@ -1,22 +1,42 @@
 use bevy::{prelude::*, utils::HashSet};
 use bevy_ggrs::{GgrsApp, GgrsSchedule};
+use bevy_roll_safe::{apply_state_transition, run_enter_schedule};
 use enum_ordinalize::Ordinalize;
+
+use crate::MultiplayerGameState;
 
 pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(GgrsSchedule, (
+        app.add_systems(
+            GgrsSchedule,
+            (
                 handle_gravity,
                 handle_velocity,
                 handle_colliders,
-                handle_solids
-            ).chain().in_set(PhysicsSet))
-            .rollback_component_with_copy::<Velocity>()
-            .rollback_component_with_copy::<Gravity>()
-            .rollback_component_with_copy::<Solid>()
-            .rollback_component_with_clone::<Collider>();
+                handle_solids,
+            )
+                .chain()
+                .in_set(PhysicsSet)
+                .after(run_enter_schedule::<MultiplayerGameState>)
+                .after(apply_state_transition::<MultiplayerGameState>),
+        )
+        .add_systems(
+            Update,
+            (
+                handle_gravity,
+                handle_velocity,
+                handle_colliders,
+                handle_solids,
+            )
+                .chain()
+                .in_set(PhysicsSet),
+        )
+        .rollback_component_with_copy::<Velocity>()
+        .rollback_component_with_copy::<Gravity>()
+        .rollback_component_with_copy::<Solid>()
+        .rollback_component_with_clone::<Collider>();
     }
 }
 
@@ -50,7 +70,7 @@ pub enum CollidingSide {
     Top,
     Bottom,
     Left,
-    Right
+    Right,
 }
 
 impl CollidingSide {
@@ -68,7 +88,7 @@ impl CollidingSide {
 pub struct Collider {
     bounding_box: Vec2,
     collisions: Vec<(Entity, CollidingSide, f32)>,
-    colliding_side: u8
+    colliding_side: u8,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -79,10 +99,10 @@ impl Collider {
         Self {
             bounding_box: bounding_box.abs(),
             collisions: Vec::new(),
-            colliding_side: 0
+            colliding_side: 0,
         }
     }
-    
+
     pub fn check_colliding_side(&self, side: CollidingSide) -> bool {
         self.colliding_side & (1u8 << side.ordinal()) > 0
     }
@@ -99,9 +119,9 @@ impl Collider {
 
     pub fn colliding_with(&self, entity: &Entity) -> Option<(CollidingSide, f32)> {
         self.collisions
-        .iter()
-        .find(|(e, _, _)| e == entity)
-        .map(|(_, side, overlap)| (*side, *overlap))
+            .iter()
+            .find(|(e, _, _)| e == entity)
+            .map(|(_, side, overlap)| (*side, *overlap))
     }
 }
 
@@ -130,7 +150,7 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
     let mut handled_collisions: HashSet<(Entity, Entity)> = HashSet::new();
     let mut iter = objects.iter_combinations_mut();
 
-    while let Some([(e1, mut t1, c1, s1), (e2, mut t2, c2, s2)]) = iter.fetch_next()  {
+    while let Some([(e1, mut t1, c1, s1), (e2, mut t2, c2, s2)]) = iter.fetch_next() {
         let collision = c1.colliding_with(&e2);
 
         if collision.is_none() {
@@ -148,21 +168,25 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
             CollidingSide::Bottom => Vec2::new(0., overlap),
             CollidingSide::Left => Vec2::new(overlap, 0.),
             CollidingSide::Right => Vec2::new(-overlap, 0.),
-        }.extend(0.);
+        }
+        .extend(0.);
 
-        match (s1.0, s2.0, c1.check_colliding_side(side.opposite()), c2.check_colliding_side(side)) {
+        match (
+            s1.0,
+            s2.0,
+            c1.check_colliding_side(side.opposite()),
+            c2.check_colliding_side(side),
+        ) {
             (true, true, false, false) => {
                 t2.translation -= movement / 2.;
                 t1.translation += movement / 2.;
-            },
+            }
             (true, false, false, _) | (true, true, false, true) => {
                 t1.translation += movement;
-
-            },
+            }
             (false, true, _, true) | (true, true, true, false) => {
                 t2.translation -= movement;
-
-            },
+            }
             _ => (),
         }
 
@@ -189,16 +213,13 @@ pub fn handle_colliders(mut objects: Query<(Entity, &Transform, &mut Collider)>)
         let collisions = if edge_distance.x > edge_distance.y {
             if diff.x < 0. {
                 (CollidingSide::Right, CollidingSide::Left)
-            }
-            else {
+            } else {
                 (CollidingSide::Left, CollidingSide::Right)
             }
-        }
-        else {
+        } else {
             if diff.y < 0. {
                 (CollidingSide::Top, CollidingSide::Bottom)
-            }
-            else {
+            } else {
                 (CollidingSide::Bottom, CollidingSide::Top)
             }
         };

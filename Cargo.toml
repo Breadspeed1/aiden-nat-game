@@ -7,6 +7,7 @@ edition = "2021"
 bevy = "0.14.2"
 bevy_ggrs = "0.16.0"
 bevy_matchbox = { version = "0.10.0", features = ["ggrs"] }
+bevy_roll_safe = "0.3.0"
 clap = { version = "4.5.18", features = ["derive"] }
 enum-ordinalize = "4.3.0"
 
