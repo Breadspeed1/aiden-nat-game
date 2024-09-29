@@ -1,6 +1,8 @@
 use bevy::{prelude::*, utils::HashMap};
 use bevy_ggrs::{LocalInputs, LocalPlayers};
 
+use crate::{resources::WindowScale, MIN_WINDOW_SIZE};
+
 const INPUT_LEFT: u8 = 1 << 0;
 const INPUT_RIGHT: u8 = 1 << 1;
 const INPUT_JUMP: u8 = 1 << 2;
@@ -29,6 +31,24 @@ pub fn read_local_inputs(
     }
 
     commands.insert_resource(LocalInputs::<super::Config>(local_inputs));
+}
+
+pub fn handle_window_resize(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut windows: Query<&mut Window>,
+    mut resolution_settings: ResMut<WindowScale>
+) {
+    let mut window = windows.single_mut();
+
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::Equal) {
+        let scale = resolution_settings.increase();
+        window.resolution.set(MIN_WINDOW_SIZE * scale as f32, MIN_WINDOW_SIZE * scale as f32)
+    }
+
+    if keys.pressed(KeyCode::ControlLeft) && keys.just_pressed(KeyCode::Minus) {
+        let scale = resolution_settings.decrease();
+        window.resolution.set(MIN_WINDOW_SIZE * scale as f32, MIN_WINDOW_SIZE * scale as f32)
+    }
 }
 
 pub fn direction(input: u8) -> Vec2 {

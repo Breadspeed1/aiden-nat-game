@@ -1,0 +1,4 @@
+
+const FLOOR_HEX: u32 = 0x000000;
+const DOOR_HEX: u32 = 0x700000;
+const VINE_HEX: u32 = 0x00A000;

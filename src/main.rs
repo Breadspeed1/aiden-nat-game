@@ -1,19 +1,26 @@
-use bevy::prelude::*;
+use bevy::window::EnabledButtons;
+use bevy::{prelude::*, window::WindowResolution};
 use bevy::render::camera::ScalingMode;
 use bevy_matchbox::{prelude::SingleChannel, MatchboxSocket};
 use components::Player;
+use input::handle_window_resize;
 use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
 use clap::Parser;
 use args::Args;
+use resources::WindowScale;
 
 mod physics;
 mod input;
 mod components;
 mod args;
+mod level;
+mod resources;
 
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
+
+pub const MIN_WINDOW_SIZE: f32 = 196.0;
 
 fn main() {
     let args = Args::parse();
@@ -25,6 +32,10 @@ fn main() {
             primary_window: Some(Window {
                 fit_canvas_to_parent: true,
                 prevent_default_event_handling: false,
+                resizable: false,
+                resolution: WindowResolution::new(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE),
+                mode: bevy::window::WindowMode::Windowed,
+                enabled_buttons: EnabledButtons { minimize: true, maximize: false, close: true },
                 ..default()
             }),
             ..default()
@@ -33,9 +44,10 @@ fn main() {
     ))
         .add_plugins(PhysicsPlugin)
         .insert_resource(args)
+        .insert_resource(WindowScale::new())
         .insert_resource(ClearColor(Color::srgb(0.53, 0.53, 0.53)))
         .add_systems(Startup, (setup, spawn_floor, spawn_player, spawn_object, start_matchbox_socket))
-        .add_systems(Update, wait_for_players)
+        .add_systems(Update, (wait_for_players, handle_window_resize))
         .add_systems(ReadInputs, input::read_local_inputs)
         .add_systems(GgrsSchedule, (move_player, reset)
             .chain()
@@ -105,7 +117,7 @@ fn wait_for_players(mut commands: Commands, mut socket: ResMut<MatchboxSocket<Si
     socket.update_peers();
     let players = socket.players();
 
-    let num_players = 1;
+    let num_players = 2;
     if players.len() < num_players {
         return;
     }
