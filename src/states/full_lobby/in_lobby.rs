@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_ggrs::GgrsSchedule;
+use bevy_roll_safe::{apply_state_transition, run_enter_schedule};
 
 use crate::{physics::PhysicsSet, MultiplayerGameState};
 
@@ -15,8 +16,9 @@ impl Plugin for InLobbyPlugin {
             )
                 .chain()
                 .in_set(InLobbySet::Update)
-                .ambiguous_with_all()
                 .before(PhysicsSet)
+                .after(run_enter_schedule::<MultiplayerGameState>)
+                .after(apply_state_transition::<MultiplayerGameState>)
                 .run_if(in_state(MultiplayerGameState::InLobby)),
         );
     }

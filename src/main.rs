@@ -1,4 +1,5 @@
 use args::Args;
+use bevy::ecs::system::SystemId;
 use bevy::render::camera::ScalingMode;
 use bevy::window::EnabledButtons;
 use bevy::{prelude::*, window::WindowResolution};
@@ -68,6 +69,9 @@ fn main() {
         .run();
 }
 
+#[derive(Debug, Resource)]
+pub struct DespawnAllButCameraID(pub SystemId);
+
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum AppState {
     MainMenu,
@@ -94,4 +98,14 @@ fn setup(mut commands: Commands) {
         height: 10.,
     };
     commands.spawn(camera_bundle);
+    let id = commands.register_one_shot_system(despawn_all_but_camera);
+    commands.insert_resource(DespawnAllButCameraID(id));
+}
+
+pub fn despawn_all_but_camera(mut commands: Commands, query: Query<Entity, (Without<Camera>, Without<Window>)>) {
+    for entity in &query {
+        if let Some(e) = commands.get_entity(entity) {
+            e.despawn_recursive();
+        }
+    }
 }
