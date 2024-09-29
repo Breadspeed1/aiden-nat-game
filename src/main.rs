@@ -5,14 +5,20 @@ use components::Player;
 use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
+use clap::Parser;
+use args::Args;
 
 mod physics;
 mod input;
 mod components;
+mod args;
 
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
 
 fn main() {
+    let args = Args::parse();
+    info!("{args:?}");
+
     App::new()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
@@ -26,6 +32,7 @@ fn main() {
         GgrsPlugin::<Config>::default(),
     ))
         .add_plugins(PhysicsPlugin)
+        .insert_resource(args)
         .insert_resource(ClearColor(Color::srgb(0.53, 0.53, 0.53)))
         .add_systems(Startup, (setup, spawn_floor, spawn_player, spawn_object, start_matchbox_socket))
         .add_systems(Update, wait_for_players)
@@ -40,6 +47,14 @@ fn main() {
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_copy::<Player>()
         .run();
+}
+
+fn synctest_mode(args: Res<Args>) -> bool {
+    args.synctest
+}
+
+fn p2p_mode(args: Res<Args>) -> bool {
+    !args.synctest
 }
 
 fn setup(mut commands: Commands) {
