@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
-use physics::{Collider, Gravity, Velocity};
+use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
 
 mod physics;
 
@@ -14,14 +14,10 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(PhysicsPlugin)
         .insert_resource(ClearColor(Color::srgb(0.53, 0.53, 0.53)))
         .add_systems(Startup, (setup, spawn_floor, spawn_player, spawn_object))
-        .add_systems(Update, (
-            move_player,
-            physics::handle_gravity,
-            physics::handle_velocity,
-            physics::handle_coliders
-        ).chain())
+        .add_systems(Update, (move_player, reset))
         .run();
 }
 
@@ -61,11 +57,23 @@ fn move_player(
     }
 }
 
+fn reset(
+    mut objects: Query<(&mut Transform, &mut Velocity)>,
+) {
+    for (mut t, mut v) in &mut objects {
+        if t.translation.y < -5. {
+            t.translation = Vec3::new(0., 3., 0.);
+            v.0 = Vec2::ZERO;
+        }
+    }
+}
+
 fn spawn_player(mut commands: Commands) {
     commands.spawn((
         Player,
         Gravity(-9.8 * 10.),
-        Collider::new(Vec2::new(1., 1.), true),
+        Collider::new(Vec2::new(1., 1.)),
+        Solid(true),
         Velocity::default(),
         SpriteBundle {
             sprite: Sprite {
@@ -81,7 +89,8 @@ fn spawn_player(mut commands: Commands) {
 fn spawn_object(mut commands: Commands) {
     commands.spawn((
         Gravity(-9.8 * 10.),
-        Collider::new(Vec2::new(1., 1.), true),
+        Collider::new(Vec2::new(1., 1.)),
+        Solid(true),
         Velocity::default(),
         SpriteBundle {
             sprite: Sprite {
@@ -97,7 +106,8 @@ fn spawn_object(mut commands: Commands) {
 
 fn spawn_floor(mut commands: Commands) {
     commands.spawn((
-        Collider::new(Vec2::new(10., 1.), false),
+        Collider::new(Vec2::new(10., 1.)),
+        Solid(false),
         Velocity::default(),
         SpriteBundle {
             sprite: Sprite {

@@ -1,5 +1,18 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 use enum_ordinalize::Ordinalize;
+
+pub struct PhysicsPlugin;
+
+impl Plugin for PhysicsPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Update, (
+            handle_gravity,
+            handle_velocity,
+            handle_colliders,
+            handle_solids
+        ).chain());
+    }
+}
 
 #[derive(Component, Default, Debug)]
 pub struct Velocity(pub Vec2);
@@ -23,7 +36,7 @@ impl Gravity {
     }
 }
 
-#[derive(Debug, Ordinalize)]
+#[derive(Debug, Ordinalize, Clone, Copy)]
 pub enum CollidingSide {
     Top,
     Bottom,
@@ -34,35 +47,41 @@ pub enum CollidingSide {
 #[derive(Component, Debug)]
 pub struct Collider {
     bounding_box: Vec2,
-    movable: bool,
-    colliding: u8
+    collisions: Vec<(Entity, CollidingSide, f32)>,
+    colliding_side: u8
 }
 
+#[derive(Component, Debug)]
+pub struct Solid(pub bool);
+
 impl Collider {
-    pub fn new(bounding_box: Vec2, movable: bool) -> Self {
+    pub fn new(bounding_box: Vec2) -> Self {
         Self {
             bounding_box: bounding_box.abs(),
-            movable,
-            colliding: 0u8
+            collisions: Vec::new(),
+            colliding_side: 0
         }
     }
     
     pub fn check_colliding_side(&self, side: CollidingSide) -> bool {
-        let mask = 1u8 << side.ordinal();
-        self.colliding & mask > 0
+        self.colliding_side & (1u8 << side.ordinal()) > 0
     }
 
-    pub fn set_colliding_side(&mut self, side: CollidingSide) {
-        let mask = 1u8 << side.ordinal();
-        self.colliding |= mask;
+    pub fn add_collision(&mut self, entity: Entity, colliding_side: CollidingSide, overlap: f32) {
+        self.collisions.push((entity, colliding_side, overlap));
+        self.colliding_side |= 1u8 << colliding_side.ordinal();
     }
 
-    pub fn clear_colliding_side(&mut self) {
-        self.colliding = 0u8;
+    pub fn clear_collisions(&mut self) {
+        self.colliding_side = 0;
+        self.collisions.clear();
     }
 
-    fn check_is_colliding(&self, other: &Self, distance_x: f32, distance_y: f32) -> bool {
-        self.bounding_box.x / 2. + other.bounding_box.x / 2. > distance_x && self.bounding_box.y / 2. + other.bounding_box.y / 2. > distance_y
+    pub fn colliding_with(&self, entity: &Entity) -> Option<(CollidingSide, f32)> {
+        self.collisions
+        .iter()
+        .find(|(e, _, _)| e == entity)
+        .map(|(_, side, overlap)| (*side, *overlap))
     }
 }
 
@@ -87,61 +106,86 @@ pub fn handle_gravity(time: Res<Time>, mut objects: Query<(&Gravity, &mut Veloci
     }
 }
 
-pub fn handle_coliders(mut objects: Query<(&mut Transform, &mut Collider)>) {
-    for (_, mut collider) in &mut objects {
-        collider.clear_colliding_side();
+pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Solid)>) {
+    let mut handled_collisions: HashSet<(Entity, Entity)> = HashSet::new();
+    let mut iter = objects.iter_combinations_mut();
+
+    while let Some([(e1, mut t1, c1, s1), (e2, mut t2, _, s2)]) = iter.fetch_next()  {
+        let collision = c1.colliding_with(&e2);
+
+        if collision.is_none() {
+            continue;
+        }
+
+        if handled_collisions.contains(&(e1, e2)) {
+            continue;
+        }
+
+        let (side, overlap) = collision.unwrap();
+
+        let movement = match side {
+            CollidingSide::Top => Vec2::new(0., -overlap),
+            CollidingSide::Bottom => Vec2::new(0., overlap),
+            CollidingSide::Left => Vec2::new(overlap, 0.),
+            CollidingSide::Right => Vec2::new(-overlap, 0.),
+        }.extend(0.);
+
+        match (s1.0, s2.0) {
+            (true, true) => {
+                t2.translation -= movement / 2.;
+                t1.translation += movement / 2.;
+            },
+            (true, false) => {
+                t1.translation += movement;
+
+            },
+            (false, true) => {
+                t2.translation -= movement;
+
+            },
+            (false, false) => (),
+        }
+
+        handled_collisions.insert((e1, e2));
+        handled_collisions.insert((e2, e1));
+    }
+}
+
+pub fn handle_colliders(mut objects: Query<(Entity, &Transform, &mut Collider)>) {
+    for (_, _, mut collider) in &mut objects {
+        collider.clear_collisions();
     }
 
     let mut iter = objects.iter_combinations_mut();
 
-    while let Some([(mut t1, mut c1), (mut t2, mut c2)]) = iter.fetch_next() {
-        let distance = t2.translation - t1.translation;
-        let colliding = c1.check_is_colliding(c2.as_ref(), distance.x.abs(), distance.y.abs());
+    while let Some([(e1, t1, mut c1), (e2, t2, mut c2)]) = iter.fetch_next() {
+        let diff = t1.translation.xy() - t2.translation.xy();
+        let edge_distance = diff.abs() - (c1.bounding_box + c2.bounding_box) / 2.;
 
-        if colliding {
-            let edge_distance = distance.xy().abs() - (c1.bounding_box + c2.bounding_box) / 2.;
-            let x_min = edge_distance.x.abs() < edge_distance.y.abs();
+        if edge_distance.max_element() > 0. {
+            continue;
+        }
 
-            let move_amount = if x_min {
-                edge_distance.with_y(0.).copysign(-distance.xy())
+        let collisions = if edge_distance.x > edge_distance.y {
+            if diff.x < 0. {
+                (CollidingSide::Right, CollidingSide::Left)
             }
             else {
-                edge_distance.with_x(0.).copysign(-distance.xy())
-            }.extend(0.);
-
-            if move_amount.x < 0. {
-                c1.set_colliding_side(CollidingSide::Right);
-                c2.set_colliding_side(CollidingSide::Left);
-            }
-            else if move_amount.x > 0. {
-                c1.set_colliding_side(CollidingSide::Left);
-                c2.set_colliding_side(CollidingSide::Right);
-            }
-            else if move_amount.y < 0. {
-                c1.set_colliding_side(CollidingSide::Top);
-                c2.set_colliding_side(CollidingSide::Bottom);
-            }
-            else {
-                c1.set_colliding_side(CollidingSide::Bottom);
-                c2.set_colliding_side(CollidingSide::Top);
-            }
-
-            match (c1.movable, c2.movable) {
-                (true, true) => {
-                    t2.translation -= move_amount / 2.;
-                    t1.translation += move_amount / 2.;
-
-                },
-                (true, false) => {
-                    t1.translation += move_amount;
-
-                },
-                (false, true) => {
-                    t2.translation -= move_amount;
-
-                },
-                (false, false) => (),
+                (CollidingSide::Left, CollidingSide::Right)
             }
         }
+        else {
+            if diff.y < 0. {
+                (CollidingSide::Top, CollidingSide::Bottom)
+            }
+            else {
+                (CollidingSide::Bottom, CollidingSide::Top)
+            }
+        };
+
+        let max = edge_distance.max_element().abs();
+
+        c1.add_collision(e2, collisions.0, max);
+        c2.add_collision(e1, collisions.1, max);
     }
 }
