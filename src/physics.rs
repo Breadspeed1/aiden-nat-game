@@ -1,20 +1,26 @@
 use bevy::{prelude::*, utils::HashSet};
+use bevy_ggrs::{GgrsApp, GgrsSchedule};
 use enum_ordinalize::Ordinalize;
 
 pub struct PhysicsPlugin;
 
 impl Plugin for PhysicsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (
-            handle_gravity,
-            handle_velocity,
-            handle_colliders,
-            handle_solids
-        ).chain());
+        app
+            .add_systems(GgrsSchedule, (
+                handle_gravity,
+                handle_velocity,
+                handle_colliders,
+                handle_solids
+            ).chain())
+            .rollback_component_with_copy::<Velocity>()
+            .rollback_component_with_copy::<Gravity>()
+            .rollback_component_with_copy::<Solid>()
+            .rollback_component_with_clone::<Collider>();
     }
 }
 
-#[derive(Component, Default, Debug)]
+#[derive(Component, Default, Debug, Clone, Copy)]
 pub struct Velocity(pub Vec2);
 
 impl Velocity {
@@ -27,7 +33,7 @@ impl Velocity {
     }
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Gravity(pub f32);
 
 impl Gravity {
@@ -44,14 +50,14 @@ pub enum CollidingSide {
     Right
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone)]
 pub struct Collider {
     bounding_box: Vec2,
     collisions: Vec<(Entity, CollidingSide, f32)>,
     colliding_side: u8
 }
 
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct Solid(pub bool);
 
 impl Collider {
