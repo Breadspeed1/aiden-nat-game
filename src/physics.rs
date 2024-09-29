@@ -50,6 +50,17 @@ pub enum CollidingSide {
     Right
 }
 
+impl CollidingSide {
+    pub fn opposite(&self) -> Self {
+        match self {
+            CollidingSide::Top => CollidingSide::Bottom,
+            CollidingSide::Bottom => CollidingSide::Top,
+            CollidingSide::Left => CollidingSide::Right,
+            CollidingSide::Right => CollidingSide::Left,
+        }
+    }
+}
+
 #[derive(Component, Debug, Clone)]
 pub struct Collider {
     bounding_box: Vec2,
@@ -116,7 +127,7 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
     let mut handled_collisions: HashSet<(Entity, Entity)> = HashSet::new();
     let mut iter = objects.iter_combinations_mut();
 
-    while let Some([(e1, mut t1, c1, s1), (e2, mut t2, _, s2)]) = iter.fetch_next()  {
+    while let Some([(e1, mut t1, c1, s1), (e2, mut t2, c2, s2)]) = iter.fetch_next()  {
         let collision = c1.colliding_with(&e2);
 
         if collision.is_none() {
@@ -136,20 +147,20 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
             CollidingSide::Right => Vec2::new(-overlap, 0.),
         }.extend(0.);
 
-        match (s1.0, s2.0) {
-            (true, true) => {
+        match (s1.0, s2.0, c1.check_colliding_side(side.opposite()), c2.check_colliding_side(side)) {
+            (true, true, false, false) => {
                 t2.translation -= movement / 2.;
                 t1.translation += movement / 2.;
             },
-            (true, false) => {
+            (true, false, false, _) | (true, true, false, true) => {
                 t1.translation += movement;
 
             },
-            (false, true) => {
+            (false, true, _, true) | (true, true, true, false) => {
                 t2.translation -= movement;
 
             },
-            (false, false) => (),
+            _ => (),
         }
 
         handled_collisions.insert((e1, e2));
