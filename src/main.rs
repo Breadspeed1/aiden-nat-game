@@ -38,6 +38,7 @@ fn main() {
             .before(physics::handle_solids)
         )
         .rollback_component_with_clone::<Transform>()
+        .rollback_component_with_copy::<Player>()
         .run();
 }
 
