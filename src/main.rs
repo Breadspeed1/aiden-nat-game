@@ -3,7 +3,7 @@ use bevy::render::camera::ScalingMode;
 use bevy_matchbox::{prelude::SingleChannel, MatchboxSocket};
 use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
 use bevy_ggrs::*;
-use bevy_matchbox::matchbox_socket::{WebRtcSocket, PeerId};
+use bevy_matchbox::matchbox_socket::PeerId;
 
 mod physics;
 
@@ -31,13 +31,21 @@ fn main() {
         .add_systems(Startup, (setup, spawn_floor, spawn_player, spawn_object, start_matchbox_socket))
         .add_systems(Update, wait_for_players)
         .add_systems(ReadInputs, read_local_inputs)
-        .add_systems(GgrsSchedule, (move_player, reset))
+        .add_systems(GgrsSchedule, (move_player, reset)
+            .chain()
+            .before(physics::handle_gravity)
+            .before(physics::handle_velocity)
+            .before(physics::handle_colliders)
+            .before(physics::handle_solids)
+        )
         .rollback_component_with_clone::<Transform>()
         .run();
 }
 
 #[derive(Component)]
-struct Player;
+struct Player {
+    handle: usize
+}
 
 fn setup(mut commands: Commands) {
     let mut camera_bundle = Camera2dBundle::default();
@@ -46,26 +54,26 @@ fn setup(mut commands: Commands) {
 }
 
 fn move_player(
-    mut players: Query<(&mut Velocity, &Collider), With<Player>>,
+    mut players: Query<(&mut Velocity, &Collider, &Player)>,
     inputs: Res<PlayerInputs<Config>>
 ) {
-    let mut direction = Vec2::ZERO;
+    for (mut velocity, collider, player) in &mut players {
+        let mut direction = Vec2::ZERO;
 
-    let (input, _) = inputs[0];
+        let (input, _) = inputs[player.handle];
 
-    if input & INPUT_LEFT != 0 {
-        direction.x -= 7.;
-    }
+        if input & INPUT_LEFT != 0 {
+            direction.x -= 7.;
+        }
 
-    if input & INPUT_RIGHT != 0 {
-        direction.x += 7.;
-    }
+        if input & INPUT_RIGHT != 0 {
+            direction.x += 7.;
+        }
 
-    if input & INPUT_JUMP != 0 {
-        direction.y += 20.;
-    }
+        if input & INPUT_JUMP != 0 {
+            direction.y += 20.;
+        }
 
-    for (mut velocity, collider) in &mut players {
         velocity.0.x = direction.x;
         
         if direction.y > 0. && collider.check_colliding_side(physics::CollidingSide::Bottom) {
@@ -157,7 +165,7 @@ fn wait_for_players(mut commands: Commands, mut socket: ResMut<MatchboxSocket<Si
 fn spawn_player(mut commands: Commands) {
     // Player 1
     commands.spawn((
-        Player,
+        Player { handle: 0 },
         Gravity(-9.8 * 10.),
         Collider::new(Vec2::new(1., 1.)),
         Solid(true),
@@ -176,7 +184,7 @@ fn spawn_player(mut commands: Commands) {
     // Player 2
     commands
         .spawn((
-            Player,
+            Player {handle: 1 },
             Gravity(-9.8 * 10.),
             Collider::new(Vec2::new(1., 1.)),
             Solid(true),
