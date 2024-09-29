@@ -12,13 +12,16 @@ impl Plugin for PhysicsPlugin {
                 handle_velocity,
                 handle_colliders,
                 handle_solids
-            ).chain())
+            ).chain().in_set(PhysicsSet))
             .rollback_component_with_copy::<Velocity>()
             .rollback_component_with_copy::<Gravity>()
             .rollback_component_with_copy::<Solid>()
             .rollback_component_with_clone::<Collider>();
     }
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PhysicsSet;
 
 #[derive(Component, Default, Debug, Clone, Copy)]
 pub struct Velocity(pub Vec2);

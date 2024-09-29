@@ -4,7 +4,7 @@ use bevy::render::camera::ScalingMode;
 use bevy_matchbox::{prelude::SingleChannel, MatchboxSocket};
 use components::Player;
 use input::handle_window_resize;
-use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
+use physics::{Collider, Gravity, PhysicsPlugin, PhysicsSet, Solid, Velocity};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
 use clap::Parser;
@@ -51,10 +51,7 @@ fn main() {
         .add_systems(ReadInputs, input::read_local_inputs)
         .add_systems(GgrsSchedule, (move_player, reset)
             .chain()
-            .before(physics::handle_gravity)
-            .before(physics::handle_velocity)
-            .before(physics::handle_colliders)
-            .before(physics::handle_solids)
+            .before(PhysicsSet)
         )
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_copy::<Player>()
