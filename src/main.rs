@@ -1,17 +1,16 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 use bevy_matchbox::{prelude::SingleChannel, MatchboxSocket};
+use components::Player;
 use physics::{Collider, Gravity, PhysicsPlugin, Solid, Velocity};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
 
 mod physics;
+mod input;
+mod components;
 
 type Config = bevy_ggrs::GgrsConfig<u8, PeerId>;
-
-const INPUT_LEFT: u8 = 1 << 0;
-const INPUT_RIGHT: u8 = 1 << 1;
-const INPUT_JUMP: u8 = 1 << 2;
 
 fn main() {
     App::new()
@@ -30,7 +29,7 @@ fn main() {
         .insert_resource(ClearColor(Color::srgb(0.53, 0.53, 0.53)))
         .add_systems(Startup, (setup, spawn_floor, spawn_player, spawn_object, start_matchbox_socket))
         .add_systems(Update, wait_for_players)
-        .add_systems(ReadInputs, read_local_inputs)
+        .add_systems(ReadInputs, input::read_local_inputs)
         .add_systems(GgrsSchedule, (move_player, reset)
             .chain()
             .before(physics::handle_gravity)
@@ -40,11 +39,6 @@ fn main() {
         )
         .rollback_component_with_clone::<Transform>()
         .run();
-}
-
-#[derive(Component)]
-struct Player {
-    handle: usize
 }
 
 fn setup(mut commands: Commands) {
@@ -58,21 +52,9 @@ fn move_player(
     inputs: Res<PlayerInputs<Config>>
 ) {
     for (mut velocity, collider, player) in &mut players {
-        let mut direction = Vec2::ZERO;
-
         let (input, _) = inputs[player.handle];
 
-        if input & INPUT_LEFT != 0 {
-            direction.x -= 7.;
-        }
-
-        if input & INPUT_RIGHT != 0 {
-            direction.x += 7.;
-        }
-
-        if input & INPUT_JUMP != 0 {
-            direction.y += 20.;
-        }
+        let direction = input::direction(input);
 
         velocity.0.x = direction.x;
         
@@ -80,32 +62,6 @@ fn move_player(
             velocity.0.y = direction.y;
         }
     }
-}
-
-fn read_local_inputs(
-    mut commands: Commands,
-    keys: Res<ButtonInput<KeyCode>>,
-    local_players: Res<LocalPlayers>
-) {
-    let mut local_inputs = HashMap::new();
-
-    for handle in &local_players.0 {
-        let mut input = 0u8;
-
-        if keys.any_pressed([KeyCode::ArrowLeft, KeyCode::KeyA]) {
-            input |= INPUT_LEFT
-        }
-        if keys.any_pressed([KeyCode::ArrowRight, KeyCode::KeyD]) {
-            input |= INPUT_RIGHT;
-        }
-        if keys.any_pressed([KeyCode::Space, KeyCode::ArrowUp]) {
-            input |= INPUT_JUMP;
-        }
-
-        local_inputs.insert(*handle, input);
-    }
-
-    commands.insert_resource(LocalInputs::<Config>(local_inputs));
 }
 
 fn reset(
