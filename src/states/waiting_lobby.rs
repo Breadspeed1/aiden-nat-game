@@ -23,13 +23,7 @@ impl Plugin for WaitingLobbyPlugin {
         )
         .add_systems(
             Update,
-            (
-                wait_for_players,
-                crate::input::read_local_inputs,
-                crate::movement::move_player_singleplayer,
-                crate::movement::reset,
-            )
-                .chain()
+                wait_for_players
                 .before(PhysicsSet)
                 .in_set(WaitingLobbySet::Update)
                 .run_if(in_state(AppState::WaitingInLobby)),

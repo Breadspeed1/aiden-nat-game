@@ -21,7 +21,7 @@ impl Plugin for PhysicsPlugin {
                 .in_set(PhysicsSet)
                 .after(run_enter_schedule::<MultiplayerGameState>)
                 .after(apply_state_transition::<MultiplayerGameState>),
-        )
+        )/*
         .add_systems(
             Update,
             (
@@ -32,7 +32,7 @@ impl Plugin for PhysicsPlugin {
             )
                 .chain()
                 .in_set(PhysicsSet),
-        )
+        )*/
         .rollback_component_with_copy::<Velocity>()
         .rollback_component_with_copy::<Gravity>()
         .rollback_component_with_copy::<Solid>()

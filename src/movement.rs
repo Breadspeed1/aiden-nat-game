@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy_ggrs::{LocalInputs, PlayerInputs};
+use bevy_ggrs::PlayerInputs;
 
 use crate::{
     components::Player,
@@ -20,29 +20,6 @@ pub fn move_player_multiplayer(
         }
 
         let (input, _) = *input.unwrap();
-
-        let direction = input::direction(input);
-
-        velocity.0.x = direction.x;
-
-        if direction.y > 0. && collider.check_colliding_side(physics::CollidingSide::Bottom) {
-            velocity.0.y = direction.y;
-        }
-    }
-}
-
-pub fn move_player_singleplayer(
-    mut players: Query<(&mut Velocity, &Collider, &Player)>,
-    inputs: Res<LocalInputs<Config>>,
-) {
-    for (mut velocity, collider, player) in &mut players {
-        let input = inputs.0.get(&player.handle);
-
-        if input.is_none() {
-            continue;
-        }
-
-        let input = *input.unwrap();
 
         let direction = input::direction(input);
 

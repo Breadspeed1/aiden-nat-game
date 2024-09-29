@@ -8,7 +8,7 @@ use bevy_roll_safe::RollApp;
 use clap::Parser;
 use components::Player;
 use input::handle_window_resize;
-use physics::{PhysicsPlugin, PhysicsSet};
+use physics::PhysicsPlugin;
 use resources::WindowScale;
 use states::full_lobby::FullLobbyPlugin;
 use states::main_menu::MainMenuPlugin;
@@ -62,10 +62,6 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(Update, handle_window_resize)
         .add_systems(ReadInputs, input::read_local_inputs)
-        .configure_sets(
-            Update,
-            PhysicsSet.run_if(in_state(AppState::WaitingInLobby)),
-        )
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_copy::<Player>()
         .init_ggrs_state::<MultiplayerGameState>()
