@@ -8,11 +8,11 @@ use crate::{
 };
 
 pub fn handle_vine_interactions(
-    mut players: Query<(&mut Velocity, &Collider, &Player, Entity, &mut Gravity)>,
+    mut players: Query<(&mut Velocity, &Collider, &Player, &mut Gravity)>,
     vines: Query<(&Vine, Entity)>,
     inputs: Res<PlayerInputs<Config>>,
 ) {
-    for (mut velocity, collider, player, e, mut gravity) in &mut players {
+    for (mut velocity, collider, player, mut gravity) in &mut players {
         let input = inputs.get(player.handle);
 
         if input.is_none() {

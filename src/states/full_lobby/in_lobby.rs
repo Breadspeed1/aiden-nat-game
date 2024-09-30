@@ -11,6 +11,7 @@ impl Plugin for InLobbyPlugin {
         app.add_systems(
             GgrsSchedule,
             (
+                crate::components::handle_coyote_time,
                 crate::movement::move_player_multiplayer,
                 crate::movement::reset,
                 crate::interactions::handle_vine_interactions,

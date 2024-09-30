@@ -2,18 +2,17 @@ use bevy::prelude::*;
 use bevy_ggrs::PlayerInputs;
 
 use crate::{
-    components::{Platform, Player},
+    components::{CoyoteTime, Player},
     input,
-    physics::{self, Collider, Velocity},
+    physics::Velocity,
     Config,
 };
 
 pub fn move_player_multiplayer(
-    mut players: Query<(&mut Velocity, &Collider, &Player, &mut Sprite)>,
-    platforms: Query<&Platform>,
+    mut players: Query<(&mut Velocity, &mut CoyoteTime, &Player, &mut Sprite)>,
     inputs: Res<PlayerInputs<Config>>,
 ) {
-    for (mut velocity, collider, player, mut sprite) in &mut players {
+    for (mut velocity, mut ct, player, mut sprite) in &mut players {
         let input = inputs.get(player.handle);
 
         if input.is_none() {
@@ -36,11 +35,10 @@ pub fn move_player_multiplayer(
             continue;
         }
 
-        for entity in collider.get_all_colliding_side(physics::CollidingSide::Bottom) {
-            if platforms.contains(entity) {
-                velocity.0.y = direction.y;
-                continue;
-            }
+        if ct.get() {
+            velocity.0.y = direction.y;
+            ct.clear();
+            continue;
         }
     }
 }

@@ -65,15 +65,15 @@ pub fn direction(input: u8) -> Vec2 {
     let mut direction = Vec2::ZERO;
 
     if input & INPUT_LEFT != 0 {
-        direction.x -= 7.;
+        direction.x -= 4.;
     }
 
     if input & INPUT_RIGHT != 0 {
-        direction.x += 7.;
+        direction.x += 4.;
     }
 
     if input & INPUT_JUMP != 0 {
-        direction.y += 20.;
+        direction.y += 15.;
     }
 
     direction

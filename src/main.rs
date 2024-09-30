@@ -7,7 +7,7 @@ use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
 use bevy_roll_safe::RollApp;
 use clap::Parser;
-use components::Player;
+use components::{CoyoteTime, Player};
 use input::handle_window_resize;
 use physics::PhysicsPlugin;
 use resources::WindowScale;
@@ -68,6 +68,7 @@ fn main() {
         .add_systems(ReadInputs, input::read_local_inputs)
         .rollback_component_with_clone::<Transform>()
         .rollback_component_with_copy::<Player>()
+        .rollback_component_with_clone::<CoyoteTime>()
         .init_ggrs_state::<MultiplayerGameState>()
         .run();
 }
