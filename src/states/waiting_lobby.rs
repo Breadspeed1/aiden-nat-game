@@ -75,7 +75,7 @@ fn wait_for_players(
     socket.update_peers();
     let players = socket.players();
 
-    let num_players = 1;
+    let num_players = 2;
     if players.len() < num_players {
         return;
     }
