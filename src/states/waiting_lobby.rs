@@ -57,7 +57,7 @@ pub enum WaitingLobbySet {
 }
 
 fn start_matchbox_socket(mut commands: Commands) {
-    let room_url = "ws://ec2-3-145-94-96.us-east-2.compute.amazonaws.com:3536/aidennat?next=2";
+    let room_url = "ws://ec2-3-128-79-14.us-east-2.compute.amazonaws.com:3536/aidennat?next=2";
     //let room_url = "ws://localhost:3536/aidennat?next=2";
     info!("Connecting to matchbox server: {room_url}");
     commands.insert_resource(MatchboxSocket::new_ggrs(room_url));
