@@ -78,12 +78,12 @@ pub struct DespawnAllButCameraID(pub SystemId);
 
 #[derive(States, Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub enum AppState {
+    #[default]
     MainMenu,
     SettingsMenu,
     PastGamesMenu,
     CreateGameMenu,
     JoinGameMenu,
-    #[default]
     WaitingInLobby,
     FullLobby,
 }

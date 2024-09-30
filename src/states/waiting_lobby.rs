@@ -5,7 +5,7 @@ use bevy_ggrs::{ggrs, AddRollbackCommandExtension};
 use bevy_matchbox::prelude::SingleChannel;
 use bevy_matchbox::MatchboxSocket;
 
-use crate::{AppState, Config};
+use crate::{despawn_all_but_camera, AppState, Config};
 
 const BOTTOM_PLATFORM_HEIGHT: f32 = ((196. - 178.) / 196.) * 10.;
 const BOTTOM_PLATFORM_WIDTH: f32 = 10.;
@@ -32,12 +32,14 @@ impl Plugin for WaitingLobbyPlugin {
         app.add_systems(
             OnEnter(AppState::WaitingInLobby),
             (
+                despawn_all_but_camera,
                 spawn_background,
                 spawn_platforms,
                 spawn_player,
                 spawn_vines,
                 start_matchbox_socket,
             )
+                .chain()
                 .in_set(WaitingLobbySet::Setup),
         )
         .add_systems(
@@ -57,7 +59,7 @@ pub enum WaitingLobbySet {
 }
 
 fn start_matchbox_socket(mut commands: Commands) {
-    let room_url = "ws://ec2-3-128-79-14.us-east-2.compute.amazonaws.com:3536/aidennat?next=2";
+    let room_url = "ws://ec2-3-145-94-96.us-east-2.compute.amazonaws.com:3536/aidennat?next=2";
     //let room_url = "ws://localhost:3536/aidennat?next=2";
     info!("Connecting to matchbox server: {room_url}");
     commands.insert_resource(MatchboxSocket::new_ggrs(room_url));
@@ -133,24 +135,24 @@ fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     // Player 2
     commands
-    .spawn((
-        Player { handle: 1 },
-        Gravity(-9.8 * 10., false),
-        CoyoteTime::new(0.125),
-        Collider::new(Vec2::new((1./6.125) * 10., (1./6.125) * 10.)),
-        Solid(true),
-        Velocity::default(),
-        SpriteBundle {
-            transform: Transform::from_translation(Vec3::new(2., 2., 0.)),
-            sprite: Sprite {
-                custom_size: Some(Vec2::new((1./6.125) * 10., (1./6.125) * 10.)),
+        .spawn((
+            Player { handle: 1 },
+            Gravity(-9.8 * 10., false),
+            CoyoteTime::new(0.125),
+            Collider::new(Vec2::new((1. / 6.125) * 10., (1. / 6.125) * 10.)),
+            Solid(true),
+            Velocity::default(),
+            SpriteBundle {
+                transform: Transform::from_translation(Vec3::new(2., 2., 0.)),
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new((1. / 6.125) * 10., (1. / 6.125) * 10.)),
+                    ..default()
+                },
+                texture: player_2_handle,
                 ..default()
             },
-            texture: player_2_handle,
-            ..default()
-        },
-    ))
-    .add_rollback();
+        ))
+        .add_rollback();
 }
 
 fn spawn_platforms(mut commands: Commands) {
@@ -177,8 +179,8 @@ fn spawn_platforms(mut commands: Commands) {
             TransformBundle::from_transform(Transform::from_xyz(
                 MIDDLE_PLATFORM_POS_X,
                 MIDDLE_PLATFORM_POS_Y,
-                0.
-            ))
+                0.,
+            )),
         ))
         .add_rollback();
 
@@ -191,33 +193,35 @@ fn spawn_platforms(mut commands: Commands) {
             TransformBundle::from_transform(Transform::from_xyz(
                 TOP_PLATFORM_POS_X,
                 TOP_PLATFORM_POS_Y,
-                0.
-            ))
+                0.,
+            )),
         ))
         .add_rollback();
 }
 
 fn spawn_vines(mut commands: Commands) {
-    commands.spawn((
-        Vine,
-        Collider::new(Vec2::new(VINE_WIDTH, VINE_HEIGHT)),
-        Velocity::default(),
-        TransformBundle::from_transform(Transform::from_xyz(VINE_POS_X, VINE_POS_Y, -0.5)),
-    ))
-    .add_rollback();
+    commands
+        .spawn((
+            Vine,
+            Collider::new(Vec2::new(VINE_WIDTH, VINE_HEIGHT)),
+            Velocity::default(),
+            TransformBundle::from_transform(Transform::from_xyz(VINE_POS_X, VINE_POS_Y, -0.5)),
+        ))
+        .add_rollback();
 }
 
 fn spawn_background(mut commands: Commands, asset_server: Res<AssetServer>) {
     let background_texture = asset_server.load("lobby_background.png");
 
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            custom_size: Some(Vec2::new(10., 10.)),
+    commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                custom_size: Some(Vec2::new(10., 10.)),
+                ..default()
+            },
+            texture: background_texture,
+            transform: Transform::from_xyz(0., 0., -1.),
             ..default()
-        },
-        texture: background_texture,
-        transform: Transform::from_xyz(0., 0., -1.),
-        ..default()
-    })
-    .add_rollback();
+        })
+        .add_rollback();
 }

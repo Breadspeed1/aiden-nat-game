@@ -28,6 +28,7 @@ fn handle_ggrs_events(
     mut session: ResMut<Session<Config>>,
     abc_id: Res<DespawnAllButCameraID>,
     mut next_state: ResMut<NextState<AppState>>,
+    mut multiplayer_state: ResMut<NextState<MultiplayerGameState>>
 ) {
     match session.as_mut() {
         Session::P2P(s) => {
@@ -38,6 +39,7 @@ fn handle_ggrs_events(
 
                         commands.run_system(abc_id.0);
                         next_state.set(AppState::MainMenu);
+                        multiplayer_state.set(MultiplayerGameState::Idle);
                     }
                     bevy_ggrs::ggrs::GgrsEvent::DesyncDetected {
                         frame,

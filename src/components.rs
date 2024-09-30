@@ -17,13 +17,13 @@ pub struct Platform;
 
 #[derive(Component, Clone, Debug)]
 pub struct CoyoteTime {
-    timer: Timer
+    timer: Timer,
 }
 
 impl CoyoteTime {
     pub fn new(buffer_secs: f32) -> Self {
         Self {
-            timer: Timer::from_seconds(buffer_secs, bevy::time::TimerMode::Once)
+            timer: Timer::from_seconds(buffer_secs, bevy::time::TimerMode::Once),
         }
     }
 
@@ -45,7 +45,11 @@ impl CoyoteTime {
     }
 }
 
-pub fn handle_coyote_time(mut query: Query<(&mut CoyoteTime, &Collider), With<Player>>, platforms: Query<&Platform>, time: Res<Time>) {
+pub fn handle_coyote_time(
+    mut query: Query<(&mut CoyoteTime, &Collider), With<Player>>,
+    platforms: Query<&Platform>,
+    time: Res<Time>,
+) {
     for (mut ct, collider) in &mut query {
         ct.tick(time.delta());
 
