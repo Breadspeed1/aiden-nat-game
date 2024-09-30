@@ -18,6 +18,7 @@ use states::waiting_lobby::WaitingLobbyPlugin;
 mod args;
 mod components;
 mod input;
+mod interactions;
 mod level;
 mod movement;
 mod physics;
@@ -34,22 +35,24 @@ fn main() {
 
     App::new()
         .add_plugins((
-            DefaultPlugins.set(WindowPlugin {
-                primary_window: Some(Window {
-                    fit_canvas_to_parent: true,
-                    prevent_default_event_handling: false,
-                    resizable: false,
-                    resolution: WindowResolution::new(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE),
-                    mode: bevy::window::WindowMode::Windowed,
-                    enabled_buttons: EnabledButtons {
-                        minimize: true,
-                        maximize: false,
-                        close: true,
-                    },
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        fit_canvas_to_parent: true,
+                        prevent_default_event_handling: false,
+                        resizable: false,
+                        resolution: WindowResolution::new(MIN_WINDOW_SIZE, MIN_WINDOW_SIZE),
+                        mode: bevy::window::WindowMode::Windowed,
+                        enabled_buttons: EnabledButtons {
+                            minimize: true,
+                            maximize: false,
+                            close: true,
+                        },
+                        ..default()
+                    }),
                     ..default()
-                }),
-                ..default()
-            }),
+                })
+                .set(ImagePlugin::default_nearest()),
             GgrsPlugin::<Config>::default(),
             MainMenuPlugin,
             WaitingLobbyPlugin,
@@ -102,7 +105,10 @@ fn setup(mut commands: Commands) {
     commands.insert_resource(DespawnAllButCameraID(id));
 }
 
-pub fn despawn_all_but_camera(mut commands: Commands, query: Query<Entity, (Without<Camera>, Without<Window>)>) {
+pub fn despawn_all_but_camera(
+    mut commands: Commands,
+    query: Query<Entity, (Without<Camera>, Without<Window>)>,
+) {
     for entity in &query {
         if let Some(e) = commands.get_entity(entity) {
             e.despawn_recursive();

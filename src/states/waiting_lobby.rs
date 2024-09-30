@@ -1,4 +1,4 @@
-use crate::components::Player;
+use crate::components::{Platform, Player, Vine};
 use crate::physics::{Collider, Gravity, PhysicsSet, Solid, Velocity};
 use bevy::prelude::*;
 use bevy_ggrs::{ggrs, AddRollbackCommandExtension};
@@ -7,6 +7,14 @@ use bevy_matchbox::MatchboxSocket;
 
 use crate::{AppState, Config};
 
+const BOTTOM_PLATFORM_HEIGHT: f32 = ((196. - 178.) / 196.) * 10.;
+const BOTTOM_PLATFORM_WIDTH: f32 = 10.;
+
+const VINE_HEIGHT: f32 = ((177. - 93.) / 196.) * 10.;
+const VINE_WIDTH: f32 = ((74. - 69.) / 196.) * 10.;
+const VINE_POS_Y: f32 = (((177. - 93.) / 2. + (196. - 177.)) / 196.) * 10. - 5.;
+const VINE_POS_X: f32 = (((74. - 69.) / 2. + 69.) / 196.) * 10. - 5.;
+
 pub struct WaitingLobbyPlugin;
 
 impl Plugin for WaitingLobbyPlugin {
@@ -14,16 +22,18 @@ impl Plugin for WaitingLobbyPlugin {
         app.add_systems(
             OnEnter(AppState::WaitingInLobby),
             (
-                spawn_floor,
+                spawn_background,
+                spawn_platforms,
                 spawn_player,
                 spawn_object,
+                spawn_vines,
                 start_matchbox_socket,
             )
                 .in_set(WaitingLobbySet::Setup),
         )
         .add_systems(
             Update,
-                wait_for_players
+            wait_for_players
                 .before(PhysicsSet)
                 .in_set(WaitingLobbySet::Update)
                 .run_if(in_state(AppState::WaitingInLobby)),
@@ -56,7 +66,7 @@ fn wait_for_players(
     socket.update_peers();
     let players = socket.players();
 
-    let num_players = 2;
+    let num_players = 1;
     if players.len() < num_players {
         return;
     }
@@ -87,21 +97,24 @@ fn wait_for_players(
     next_state.set(AppState::FullLobby);
 }
 
-fn spawn_player(mut commands: Commands) {
+fn spawn_player(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let player_1_handle: Handle<Image> = asset_server.load("characters/nat.png");
+    let player_2_handle: Handle<Image> = asset_server.load("characters/aiden.png");
+
     // Player 1
     commands
         .spawn((
             Player { handle: 0 },
-            Gravity(-9.8 * 10.),
-            Collider::new(Vec2::new(1., 1.)),
+            Gravity(-9.8 * 10., false),
+            Collider::new(Vec2::new((1. / 8.167) * 10., (1. / 6.125) * 10.)),
             Solid(true),
             Velocity::default(),
             SpriteBundle {
                 sprite: Sprite {
-                    color: Color::srgb(0., 0.47, 1.),
-                    custom_size: Some(Vec2::new(1., 1.)),
+                    custom_size: Some(Vec2::new((1. / 6.125) * 10., (1. / 6.125) * 10.)),
                     ..default()
                 },
+                texture: player_1_handle,
                 transform: Transform::from_translation(Vec3::new(-2., 2., 0.)),
                 ..default()
             },
@@ -109,30 +122,30 @@ fn spawn_player(mut commands: Commands) {
         .add_rollback();
 
     // Player 2
-    commands
-        .spawn((
-            Player { handle: 1 },
-            Gravity(-9.8 * 10.),
-            Collider::new(Vec2::new(1., 1.)),
-            Solid(true),
-            Velocity::default(),
-            SpriteBundle {
-                transform: Transform::from_translation(Vec3::new(2., 2., 0.)),
-                sprite: Sprite {
-                    color: Color::srgb(0., 0.4, 0.),
-                    custom_size: Some(Vec2::new(1., 1.)),
-                    ..default()
-                },
+    /*commands
+    .spawn((
+        Player { handle: 1 },
+        Gravity(-9.8 * 10., false),
+        Collider::new(Vec2::new((1./6.125) * 10., (1./6.125) * 10.)),
+        Solid(true),
+        Velocity::default(),
+        SpriteBundle {
+            transform: Transform::from_translation(Vec3::new(2., 2., 0.)),
+            sprite: Sprite {
+                custom_size: Some(Vec2::new((1./6.125) * 10., (1./6.125) * 10.)),
                 ..default()
             },
-        ))
-        .add_rollback();
+            texture: player_2_handle,
+            ..default()
+        },
+    ))
+    .add_rollback();*/
 }
 
 fn spawn_object(mut commands: Commands) {
     commands
         .spawn((
-            Gravity(-9.8 * 10.),
+            Gravity(-9.8 * 10., false),
             Collider::new(Vec2::new(1., 1.)),
             Solid(true),
             Velocity::default(),
@@ -149,21 +162,41 @@ fn spawn_object(mut commands: Commands) {
         .add_rollback();
 }
 
-fn spawn_floor(mut commands: Commands) {
+fn spawn_platforms(mut commands: Commands) {
     commands
         .spawn((
-            Collider::new(Vec2::new(10., 1.)),
+            Platform,
+            Collider::new(Vec2::new(BOTTOM_PLATFORM_WIDTH, BOTTOM_PLATFORM_HEIGHT)),
             Solid(false),
             Velocity::default(),
-            SpriteBundle {
-                sprite: Sprite {
-                    color: Color::srgb(1., 1., 1.),
-                    custom_size: Some(Vec2::new(10., 1.)),
-                    ..default()
-                },
-                transform: Transform::from_translation(Vec3::new(0., -2., 0.)),
-                ..default()
-            },
+            TransformBundle::from_transform(Transform::from_xyz(
+                0.,
+                (BOTTOM_PLATFORM_HEIGHT / 2.) - 5.,
+                0.,
+            )),
         ))
         .add_rollback();
+}
+
+fn spawn_vines(mut commands: Commands) {
+    commands.spawn((
+        Vine,
+        Collider::new(Vec2::new(VINE_WIDTH, VINE_HEIGHT)),
+        Velocity::default(),
+        TransformBundle::from_transform(Transform::from_xyz(VINE_POS_X, VINE_POS_Y, -0.5)),
+    ));
+}
+
+fn spawn_background(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let background_texture = asset_server.load("lobby_background.png");
+
+    commands.spawn(SpriteBundle {
+        sprite: Sprite {
+            custom_size: Some(Vec2::new(10., 10.)),
+            ..default()
+        },
+        texture: background_texture,
+        transform: Transform::from_xyz(0., 0., -1.),
+        ..default()
+    });
 }

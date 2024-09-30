@@ -21,7 +21,7 @@ impl Plugin for PhysicsPlugin {
                 .in_set(PhysicsSet)
                 .after(run_enter_schedule::<MultiplayerGameState>)
                 .after(apply_state_transition::<MultiplayerGameState>),
-        )/*
+        ) /*
         .add_systems(
             Update,
             (
@@ -57,15 +57,27 @@ impl Velocity {
 }
 
 #[derive(Component, Debug, Clone, Copy)]
-pub struct Gravity(pub f32);
+pub struct Gravity(pub f32, pub bool);
 
 impl Gravity {
     pub fn calc_velo_delta(&self, delta_time: f32) -> Vec2 {
         Vec2::new(0., self.0 * delta_time)
     }
+
+    pub fn temp_override(&mut self) {
+        self.1 = true;
+    }
+
+    pub fn clear_temp_override(&mut self) {
+        self.1 = false;
+    }
+
+    pub fn overriden(&self) -> bool {
+        self.1
+    }
 }
 
-#[derive(Debug, Ordinalize, Clone, Copy)]
+#[derive(Debug, Ordinalize, Clone, Copy, PartialEq)]
 pub enum CollidingSide {
     Top,
     Bottom,
@@ -87,7 +99,7 @@ impl CollidingSide {
 #[derive(Component, Debug, Clone)]
 pub struct Collider {
     bounding_box: Vec2,
-    collisions: Vec<(Entity, CollidingSide, f32)>,
+    collisions: Vec<(Entity, CollidingSide, f32, bool)>,
     colliding_side: u8,
 }
 
@@ -107,8 +119,31 @@ impl Collider {
         self.colliding_side & (1u8 << side.ordinal()) > 0
     }
 
-    pub fn add_collision(&mut self, entity: Entity, colliding_side: CollidingSide, overlap: f32) {
-        self.collisions.push((entity, colliding_side, overlap));
+    pub fn check_colliding_solid_side(&self, side: CollidingSide) -> bool {
+        self.collisions
+            .iter()
+            .filter(|(_, s, _, _)| *s == side)
+            .any(|(_, _, _, s)| *s)
+    }
+
+    pub fn get_all_colliding_side(&self, side: CollidingSide) -> Vec<Entity> {
+        self.collisions
+            .iter()
+            .filter(|(_, s, _, _)| side == *s)
+            .map(|(e, _, _, _)| e)
+            .copied()
+            .collect()
+    }
+
+    pub fn add_collision(
+        &mut self,
+        entity: Entity,
+        colliding_side: CollidingSide,
+        overlap: f32,
+        solid: bool,
+    ) {
+        self.collisions
+            .push((entity, colliding_side, overlap, solid));
         self.colliding_side |= 1u8 << colliding_side.ordinal();
     }
 
@@ -117,11 +152,11 @@ impl Collider {
         self.collisions.clear();
     }
 
-    pub fn colliding_with(&self, entity: &Entity) -> Option<(CollidingSide, f32)> {
+    pub fn colliding_with(&self, entity: &Entity) -> Option<(CollidingSide, f32, bool)> {
         self.collisions
             .iter()
-            .find(|(e, _, _)| e == entity)
-            .map(|(_, side, overlap)| (*side, *overlap))
+            .find(|(e, _, _, _)| e == entity)
+            .map(|(_, side, overlap, solid)| (*side, *overlap, *solid))
     }
 }
 
@@ -133,10 +168,18 @@ pub fn handle_velocity(time: Res<Time>, mut objects: Query<(&Velocity, &mut Tran
     }
 }
 
-pub fn handle_gravity(time: Res<Time>, mut objects: Query<(&Gravity, &mut Velocity, &Collider)>) {
+pub fn handle_gravity(
+    time: Res<Time>,
+    mut objects: Query<(&mut Gravity, &mut Velocity, &Collider)>,
+) {
     let delta = time.delta_seconds();
 
-    for (gravity, mut velocity, collider) in &mut objects {
+    for (mut gravity, mut velocity, collider) in &mut objects {
+        if gravity.overriden() {
+            gravity.clear_temp_override();
+            continue;
+        }
+
         if collider.check_colliding_side(CollidingSide::Bottom) {
             velocity.0.y = velocity.0.y.max(-0.01);
             continue;
@@ -161,7 +204,7 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
             continue;
         }
 
-        let (side, overlap) = collision.unwrap();
+        let (side, overlap, _) = collision.unwrap();
 
         let movement = match side {
             CollidingSide::Top => Vec2::new(0., -overlap),
@@ -181,10 +224,10 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
                 t2.translation -= movement / 2.;
                 t1.translation += movement / 2.;
             }
-            (true, false, false, _) | (true, true, false, true) => {
+            (true, false, _, _) | (true, true, false, true) => {
                 t1.translation += movement;
             }
-            (false, true, _, true) | (true, true, true, false) => {
+            (false, true, _, _) | (true, true, true, false) => {
                 t2.translation -= movement;
             }
             _ => (),
@@ -195,7 +238,10 @@ pub fn handle_solids(mut objects: Query<(Entity, &mut Transform, &Collider, &Sol
     }
 }
 
-pub fn handle_colliders(mut objects: Query<(Entity, &Transform, &mut Collider)>) {
+pub fn handle_colliders(
+    mut objects: Query<(Entity, &Transform, &mut Collider)>,
+    solids: Query<&Solid>,
+) {
     for (_, _, mut collider) in &mut objects {
         collider.clear_collisions();
     }
@@ -226,7 +272,9 @@ pub fn handle_colliders(mut objects: Query<(Entity, &Transform, &mut Collider)>)
 
         let max = edge_distance.max_element().abs();
 
-        c1.add_collision(e2, collisions.0, max);
-        c2.add_collision(e1, collisions.1, max);
+        let solid = solids.contains(e1) && solids.contains(e2);
+
+        c1.add_collision(e2, collisions.0, max, solid);
+        c2.add_collision(e1, collisions.1, max, solid);
     }
 }

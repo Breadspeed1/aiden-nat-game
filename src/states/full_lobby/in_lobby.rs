@@ -13,6 +13,7 @@ impl Plugin for InLobbyPlugin {
             (
                 crate::movement::move_player_multiplayer,
                 crate::movement::reset,
+                crate::interactions::handle_vine_interactions,
             )
                 .chain()
                 .in_set(InLobbySet::Update)
