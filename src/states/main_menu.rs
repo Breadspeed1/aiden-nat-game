@@ -15,10 +15,9 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(AppState::MainMenu),
-            (
-                despawn_all_but_camera,
-                setup
-            ).chain().in_set(MainMenuSet::Setup),
+            (despawn_all_but_camera, setup)
+                .chain()
+                .in_set(MainMenuSet::Setup),
         )
         .add_systems(
             Update,
@@ -75,7 +74,7 @@ impl MainMenuManager {
             1 => Some(AppState::JoinGameMenu),
             2 => None,
             3 => None,
-            _ => None
+            _ => None,
         }
     }
 }
@@ -132,8 +131,7 @@ impl MainMenuButton {
             self.focus_timer.reset();
             if val {
                 self.focus_timer.tick(self.focus_timer.duration() - elapsed);
-            }
-            else {
+            } else {
                 self.focus_timer.tick(self.focus_timer.duration() - elapsed);
             }
             self.selected = val;
@@ -154,109 +152,105 @@ fn setup(mut commands: Commands, am: Res<AssetServer>) {
         ..default()
     });
 
-    commands.spawn((
-        MainMenuButton::new(3, IN_POS, IN_POS - MOVE_AMOUNT),
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(10., 10.)),
+    commands
+        .spawn((
+            MainMenuButton::new(3, IN_POS, IN_POS - MOVE_AMOUNT),
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    ..default()
+                },
+                texture: am.load("menu/menu_pf_4.png"),
                 ..default()
             },
-            texture: am.load("menu/menu_pf_4.png"),
-            ..default()
-        },
-    )).with_children(|parent| {
-        parent
-            .spawn(
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(10., 10.)),
-                        color: Color::hsl(200.0, 0.5, 0.5),
-                        ..default()
-                    },
-                    texture: am.load("menu/menu_pf_4.png"),
-                    transform: Transform::from_xyz(0., 0., -0.1),
+        ))
+        .with_children(|parent| {
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    color: Color::hsl(200.0, 0.5, 0.5),
                     ..default()
-                }
-            ); 
-    });
+                },
+                texture: am.load("menu/menu_pf_4.png"),
+                transform: Transform::from_xyz(0., 0., -0.1),
+                ..default()
+            });
+        });
 
-    commands.spawn((
-        MainMenuButton::new(2, -IN_POS, -IN_POS + MOVE_AMOUNT),
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(10., 10.)),
+    commands
+        .spawn((
+            MainMenuButton::new(2, -IN_POS, -IN_POS + MOVE_AMOUNT),
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    ..default()
+                },
+                texture: am.load("menu/menu_pf_3.png"),
                 ..default()
             },
-            texture: am.load("menu/menu_pf_3.png"),
-            ..default()
-        },
-    )).with_children(|parent| {
-        parent
-            .spawn(
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(10., 10.)),
-                        color: Color::hsl(200.0, 0.5, 0.5),
-                        ..default()
-                    },
-                    texture: am.load("menu/menu_pf_3.png"),
-                    transform: Transform::from_xyz(0., 0., -0.1),
+        ))
+        .with_children(|parent| {
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    color: Color::hsl(200.0, 0.5, 0.5),
                     ..default()
-                }
-            ); 
-    });
+                },
+                texture: am.load("menu/menu_pf_3.png"),
+                transform: Transform::from_xyz(0., 0., -0.1),
+                ..default()
+            });
+        });
 
-    commands.spawn((
-        MainMenuButton::new(1, IN_POS, IN_POS - MOVE_AMOUNT),
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(10., 10.)),
+    commands
+        .spawn((
+            MainMenuButton::new(1, IN_POS, IN_POS - MOVE_AMOUNT),
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    ..default()
+                },
+                texture: am.load("menu/menu_pf_2.png"),
                 ..default()
             },
-            texture: am.load("menu/menu_pf_2.png"),
-            ..default()
-        },
-    )).with_children(|parent| {
-        parent
-            .spawn(
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(10., 10.)),
-                        color: Color::hsl(200.0, 0.5, 0.5),
-                        ..default()
-                    },
-                    texture: am.load("menu/menu_pf_2.png"),
-                    transform: Transform::from_xyz(0., 0., -0.1),
+        ))
+        .with_children(|parent| {
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    color: Color::hsl(200.0, 0.5, 0.5),
                     ..default()
-                }
-            ); 
-    });
+                },
+                texture: am.load("menu/menu_pf_2.png"),
+                transform: Transform::from_xyz(0., 0., -0.1),
+                ..default()
+            });
+        });
 
-    commands.spawn((
-        MainMenuButton::new(0, -IN_POS, -IN_POS + MOVE_AMOUNT),
-        SpriteBundle {
-            sprite: Sprite {
-                custom_size: Some(Vec2::new(10., 10.)),
+    commands
+        .spawn((
+            MainMenuButton::new(0, -IN_POS, -IN_POS + MOVE_AMOUNT),
+            SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    ..default()
+                },
+                texture: am.load("menu/menu_pf_1.png"),
                 ..default()
             },
-            texture: am.load("menu/menu_pf_1.png"),
-            ..default()
-        },
-    )).with_children(|parent| {
-        parent
-            .spawn(
-                SpriteBundle {
-                    sprite: Sprite {
-                        custom_size: Some(Vec2::new(10., 10.)),
-                        color: Color::hsl(200.0, 0.5, 0.5),
-                        ..default()
-                    },
-                    texture: am.load("menu/menu_pf_1.png"),
-                    transform: Transform::from_xyz(0., 0., -0.1),
+        ))
+        .with_children(|parent| {
+            parent.spawn(SpriteBundle {
+                sprite: Sprite {
+                    custom_size: Some(Vec2::new(10., 10.)),
+                    color: Color::hsl(200.0, 0.5, 0.5),
                     ..default()
-                }
-            ); 
-    });
+                },
+                texture: am.load("menu/menu_pf_1.png"),
+                transform: Transform::from_xyz(0., 0., -0.1),
+                ..default()
+            });
+        });
 }
 
 fn handle_button_select(manager: Res<MainMenuManager>, mut buttons: Query<&mut MainMenuButton>) {
@@ -269,7 +263,10 @@ fn handle_button_select(manager: Res<MainMenuManager>, mut buttons: Query<&mut M
     }
 }
 
-fn handle_buttons(mut buttons: Query<(&mut MainMenuButton, &mut Transform, &mut Sprite)>, time: Res<Time>) {
+fn handle_buttons(
+    mut buttons: Query<(&mut MainMenuButton, &mut Transform, &mut Sprite)>,
+    time: Res<Time>,
+) {
     let elapsed = time.delta();
 
     for (mut button, mut transform, mut sprite) in &mut buttons {
@@ -277,20 +274,22 @@ fn handle_buttons(mut buttons: Query<(&mut MainMenuButton, &mut Transform, &mut 
         transform.translation.x = xpos;
         if button.selected {
             sprite.color.set_alpha(1.);
-        }
-        else {
+        } else {
             sprite.color.set_alpha(0.3);
         }
     }
 }
 
-fn read_keyboard(mut manager: ResMut<MainMenuManager>, keys: Res<ButtonInput<KeyCode>>, mut next_state: ResMut<NextState<AppState>>) {
+fn read_keyboard(
+    mut manager: ResMut<MainMenuManager>,
+    keys: Res<ButtonInput<KeyCode>>,
+    mut next_state: ResMut<NextState<AppState>>,
+) {
     if keys.any_pressed([KeyCode::Space, KeyCode::Enter]) {
         if let Some(state) = manager.get_state_for_selected() {
             next_state.set(state);
         }
-    }
-    else if keys.any_just_pressed([KeyCode::KeyW, KeyCode::KeyA]) {
+    } else if keys.any_just_pressed([KeyCode::KeyW, KeyCode::KeyA]) {
         manager.decrement();
     } else if keys.any_just_pressed([KeyCode::KeyS, KeyCode::KeyD]) {
         manager.increment();

@@ -3,9 +3,7 @@ use std::time::Duration;
 use crate::components::{CoyoteTime, Platform, Player, Vine};
 use crate::physics::{Collider, Gravity, PhysicsSet, Solid, Velocity};
 use bevy::prelude::*;
-use bevy_ggrs::ggrs::P2PSession;
 use bevy_ggrs::{ggrs, AddRollbackCommandExtension, GgrsTime};
-use bevy_matchbox::matchbox_socket::WebRtcChannel;
 use bevy_matchbox::prelude::{PeerId, SingleChannel};
 use bevy_matchbox::MatchboxSocket;
 
@@ -65,8 +63,6 @@ impl Plugin for WaitingLobbyPlugin {
     }
 }
 
- 
-
 enum ConnectionManagerState {
     PreConnect,
     WaitingOnMetaConnection,
@@ -74,26 +70,26 @@ enum ConnectionManagerState {
     WaitingOnGGRSConnetion(GameConfig),
     Ready,
     TimedOut,
-    InvalidConnection
+    InvalidConnection,
 }
 
 #[derive(Debug, Resource, Clone, Copy)]
 pub enum CMRole {
     ConfigBearer(GameConfig),
-    ConfigReciever
+    ConfigReciever,
 }
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct GameConfig {
     pub seed: u32,
-    pub difficulty: u32
+    pub difficulty: u32,
 }
 
 impl GameConfig {
     pub fn from_u64(data: u64) -> Self {
         Self {
             seed: (data & u32::MAX as u64) as u32,
-            difficulty: ((data >> 32) & u32::MAX as u64) as u32
+            difficulty: ((data >> 32) & u32::MAX as u64) as u32,
         }
     }
 
@@ -107,7 +103,7 @@ pub struct ConnectionManager {
     address: String,
     role: CMRole,
     state: ConnectionManagerState,
-    timeout_timer: Timer
+    timeout_timer: Timer,
 }
 
 #[derive(Debug)]
@@ -115,7 +111,7 @@ enum MetaConnectionState {
     Start,
     WaitingOnRole,
     WaitingOnOK(GameConfig),
-    WaitingOnConfig
+    WaitingOnConfig,
 }
 
 impl ConnectionManager {
@@ -124,7 +120,7 @@ impl ConnectionManager {
             address: format!("ws://{address}/{room_id}?next=2"),
             role,
             state: ConnectionManagerState::PreConnect,
-            timeout_timer: Timer::from_seconds(CONNECTION_TIMEOUT, TimerMode::Once)
+            timeout_timer: Timer::from_seconds(CONNECTION_TIMEOUT, TimerMode::Once),
         }
     }
 
@@ -135,8 +131,7 @@ impl ConnectionManager {
             self.state = ConnectionManagerState::WaitingOnMetaConnection;
             commands.insert_resource(self);
             info!("Connection manager transitioning to waiting on metadata connection");
-        }
-        else {
+        } else {
             warn!("Start called on already started connection manager");
         }
     }
@@ -145,12 +140,22 @@ impl ConnectionManager {
         &mut self.state
     }
 
-    fn check_advance(&mut self, dur: Duration, mut commands: Commands, matchbox_socket: &mut MatchboxSocket<SingleChannel>) {
+    fn check_advance(
+        &mut self,
+        dur: Duration,
+        mut commands: Commands,
+        matchbox_socket: &mut MatchboxSocket<SingleChannel>,
+    ) {
         self.timeout_timer.tick(dur);
 
         let address = self.address.clone();
 
-        if self.timeout_timer.finished() && !matches!(self.state, ConnectionManagerState::Ready | ConnectionManagerState::WaitingOnMetaConnection) {
+        if self.timeout_timer.finished()
+            && !matches!(
+                self.state,
+                ConnectionManagerState::Ready | ConnectionManagerState::WaitingOnMetaConnection
+            )
+        {
             self.state = ConnectionManagerState::TimedOut;
             return;
         }
@@ -162,25 +167,30 @@ impl ConnectionManager {
 
                 if peers == 2 {
                     let id = matchbox_socket.connected_peers().next().unwrap();
-                    self.state = ConnectionManagerState::WaitingOnMetadata(MetaConnectionState::Start, id);
+                    self.state =
+                        ConnectionManagerState::WaitingOnMetadata(MetaConnectionState::Start, id);
                     self.timeout_timer.reset();
                     info!("Connection manager transitioning to waiting on metadata")
                 }
-            },
+            }
             ConnectionManagerState::WaitingOnMetadata(state, id) => {
                 match state {
                     MetaConnectionState::Start => {
                         let channel = matchbox_socket.channel_mut(0);
 
                         match self.role {
-                            CMRole::ConfigBearer(_) => channel.send(Box::new([ROLE, CONFIG_BEARER]), *id),
-                            CMRole::ConfigReciever => channel.send(Box::new([ROLE, CONFIG_RECEIVER]), *id),
+                            CMRole::ConfigBearer(_) => {
+                                channel.send(Box::new([ROLE, CONFIG_BEARER]), *id)
+                            }
+                            CMRole::ConfigReciever => {
+                                channel.send(Box::new([ROLE, CONFIG_RECEIVER]), *id)
+                            }
                         }
 
                         info!("Connection manager transitioning to waiting on role");
                         self.timeout_timer.reset();
                         *state = MetaConnectionState::WaitingOnRole;
-                    },
+                    }
                     MetaConnectionState::WaitingOnRole => {
                         let channel = matchbox_socket.channel_mut(0);
 
@@ -205,12 +215,17 @@ impl ConnectionManager {
                                     return;
                                 }
 
-                                channel.send([&[CONFIG][..], &game_config.as_u64().to_be_bytes()[..]].concat().into(), *id);
+                                channel.send(
+                                    [&[CONFIG][..], &game_config.as_u64().to_be_bytes()[..]]
+                                        .concat()
+                                        .into(),
+                                    *id,
+                                );
 
                                 info!("Connection manager transitioning to waiting on OK");
                                 self.timeout_timer.reset();
                                 *state = MetaConnectionState::WaitingOnOK(game_config);
-                            },
+                            }
                             CMRole::ConfigReciever => {
                                 #[allow(unused_allocation)]
                                 if messages[0].1 != Box::new([ROLE, CONFIG_BEARER]) {
@@ -222,7 +237,7 @@ impl ConnectionManager {
                                 info!("Connection manager transitioning to waiting on config");
                                 self.timeout_timer.reset();
                                 *state = MetaConnectionState::WaitingOnConfig;
-                            },
+                            }
                         }
                     }
                     MetaConnectionState::WaitingOnOK(config) => {
@@ -255,7 +270,7 @@ impl ConnectionManager {
                         self.timeout_timer.reset();
 
                         info!("Connection manager transitioning to waiting on ggrs connection");
-                    },
+                    }
                     MetaConnectionState::WaitingOnConfig => {
                         let channel = matchbox_socket.channel_mut(0);
                         let messages = channel.receive();
@@ -290,7 +305,7 @@ impl ConnectionManager {
                         let config = GameConfig::from_u64(u64::from_be_bytes(config_value));
 
                         channel.send(Box::new([OK]), *id);
-                        
+
                         //matchbox_socket.close();
 
                         let socket = MatchboxSocket::new_ggrs(address);
@@ -299,9 +314,9 @@ impl ConnectionManager {
                         self.timeout_timer.reset();
 
                         info!("Connection manager transitioning to waiting on ggrs connection, config: {config:?}");
-                    },
+                    }
                 }
-            },
+            }
             ConnectionManagerState::WaitingOnGGRSConnetion(game_config) => {
                 commands.insert_resource(Time::new_with(GgrsTime::default()));
 
@@ -313,18 +328,18 @@ impl ConnectionManager {
                 }
 
                 let mut session_builder = ggrs::SessionBuilder::<Config>::new()
-                .with_num_players(2)
-                .with_input_delay(2);
-            
+                    .with_num_players(2)
+                    .with_input_delay(2);
+
                 for (i, player) in players.into_iter().enumerate() {
                     session_builder = session_builder
                         .add_player(player, i)
                         .expect("failed to add player");
                 }
-            
+
                 // move the channel out of the socket (required because GGRS takes ownership of it)
                 let channel = matchbox_socket.take_channel(0).unwrap();
-            
+
                 // start the GGRS session
                 let ggrs_session = session_builder
                     .start_p2p_session(channel)
@@ -337,10 +352,10 @@ impl ConnectionManager {
                 self.timeout_timer.reset();
 
                 info!("Connection manager transitioing to ready");
-            },
+            }
             ConnectionManagerState::Ready => {
                 info!("Connection manager finished");
-            },
+            }
             _ => {
                 matchbox_socket.close();
                 commands.remove_resource::<MatchboxSocket<SingleChannel>>();
@@ -360,15 +375,10 @@ pub enum WaitingLobbySet {
 pub struct RoomID(pub u32);
 
 fn start_connection_manager(commands: Commands, room_id: Res<RoomID>, role: Res<CMRole>) {
-    let cm = ConnectionManager::new(
-        "3.128.79.14:3536".into(),
-        room_id.0,
-        *role.into_inner()
-    );
+    let cm = ConnectionManager::new("3.128.79.14:3536".into(), room_id.0, *role.into_inner());
 
     cm.start(commands);
 }
-
 
 fn wait_for_players(
     commands: Commands,
@@ -389,11 +399,11 @@ fn wait_for_players(
         ConnectionManagerState::Ready => {
             info!("Connection manager finished, entering full lobby");
             next_state.set(AppState::FullLobby);
-        },
+        }
         ConnectionManagerState::InvalidConnection | ConnectionManagerState::TimedOut => {
             error!("Connection manager had invalid conneciton or timed out");
             next_state.set(AppState::MainMenu)
-        },
+        }
         _ => {}
     }
 }
