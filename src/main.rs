@@ -5,9 +5,12 @@ use bevy::window::EnabledButtons;
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
+use bevy_matchbox::prelude::SingleChannel;
+use bevy_matchbox::MatchboxSocket;
 use bevy_roll_safe::RollApp;
 use clap::Parser;
 use components::{CoyoteTime, Player};
+use ggrs::P2PSession;
 use input::handle_window_resize;
 use physics::PhysicsPlugin;
 use resources::WindowScale;
@@ -70,7 +73,11 @@ fn main() {
         .rollback_component_with_copy::<Player>()
         .rollback_component_with_clone::<CoyoteTime>()
         .init_ggrs_state::<MultiplayerGameState>()
-        .add_systems(OnExit(AppState::FullLobby), remove_multiplayer_resources)
+        .add_systems(OnExit(AppState::FullLobby), (
+            close_session.run_if(resource_exists::<Session<Config>>),
+            close_socket.run_if(resource_exists::<MatchboxSocket<SingleChannel>>),
+            remove_multiplayer_resources,
+        ).chain())
         .add_systems(OnEnter(AppState::CreateGameMenu), add_bearer_role)
         .add_systems(OnEnter(AppState::JoinGameMenu), add_receive_role)
         .insert_resource(RoomID(20))
@@ -102,6 +109,25 @@ pub enum MultiplayerGameState {
 fn remove_multiplayer_resources(mut commands: Commands) {
     commands.remove_resource::<GameConfig>();
     commands.remove_resource::<CMRole>();
+    commands.remove_resource::<bevy_ggrs::Session<Config>>();
+    commands.remove_resource::<MatchboxSocket<SingleChannel>>();
+    info!("Removed multiplayer resources");
+}
+
+fn close_socket(mut socket: ResMut<MatchboxSocket<SingleChannel>>) {
+    socket.close();
+    info!("closed socket");
+}
+
+fn close_session(mut session: ResMut<Session<Config>>) {
+    match session.into_inner() {
+        Session::<_>::P2P(session) => {
+            for player in session.remote_player_handles() {
+                let _ = session.disconnect_player(player);
+            }
+        },
+        _ => {}
+    }
 }
 
 fn add_receive_role(mut commands: Commands, mut next_state: ResMut<NextState<AppState>>) {

@@ -4,7 +4,7 @@ use crate::components::{CoyoteTime, Platform, Player, Vine};
 use crate::physics::{Collider, Gravity, PhysicsSet, Solid, Velocity};
 use bevy::prelude::*;
 use bevy_ggrs::ggrs::P2PSession;
-use bevy_ggrs::{ggrs, AddRollbackCommandExtension};
+use bevy_ggrs::{ggrs, AddRollbackCommandExtension, GgrsTime};
 use bevy_matchbox::matchbox_socket::WebRtcChannel;
 use bevy_matchbox::prelude::{PeerId, SingleChannel};
 use bevy_matchbox::MatchboxSocket;
@@ -69,10 +69,10 @@ impl Plugin for WaitingLobbyPlugin {
 
 enum ConnectionManagerState {
     PreConnect,
-    WaitingOnMetaConnection(MatchboxSocket<SingleChannel>),
-    WaitingOnMetadata(WebRtcChannel, MetaConnectionState, PeerId),
-    WaitingOnGGRSConnetion(MatchboxSocket<SingleChannel>, GameConfig),
-    Ready(GameConfig, Option<P2PSession<Config>>),
+    WaitingOnMetaConnection,
+    WaitingOnMetadata(MetaConnectionState, PeerId),
+    WaitingOnGGRSConnetion(GameConfig),
+    Ready,
     TimedOut,
     InvalidConnection
 }
@@ -128,10 +128,12 @@ impl ConnectionManager {
         }
     }
 
-    fn start(&mut self) {
+    fn start(mut self, mut commands: Commands) {
         if matches!(self.state, ConnectionManagerState::PreConnect) {
             let meta_conn = MatchboxSocket::new_reliable(&self.address);
-            self.state = ConnectionManagerState::WaitingOnMetaConnection(meta_conn);
+            commands.insert_resource(meta_conn);
+            self.state = ConnectionManagerState::WaitingOnMetaConnection;
+            commands.insert_resource(self);
             info!("Connection manager transitioning to waiting on metadata connection");
         }
         else {
@@ -143,39 +145,45 @@ impl ConnectionManager {
         &mut self.state
     }
 
-    fn check_advance(&mut self, dur: Duration) {
+    fn check_advance(&mut self, dur: Duration, mut commands: Commands, matchbox_socket: &mut MatchboxSocket<SingleChannel>) {
         self.timeout_timer.tick(dur);
 
         let address = self.address.clone();
 
-        if self.timeout_timer.finished() && !matches!(self.state, ConnectionManagerState::Ready(_, _) | ConnectionManagerState::WaitingOnMetaConnection(_)) {
+        if self.timeout_timer.finished() && !matches!(self.state, ConnectionManagerState::Ready | ConnectionManagerState::WaitingOnMetaConnection) {
             self.state = ConnectionManagerState::TimedOut;
             return;
         }
 
         match &mut self.state {
-            ConnectionManagerState::WaitingOnMetaConnection(matchbox_socket) => {
+            ConnectionManagerState::WaitingOnMetaConnection => {
                 matchbox_socket.update_peers();
                 let peers = matchbox_socket.players().len();
 
                 if peers == 2 {
                     let id = matchbox_socket.connected_peers().next().unwrap();
-                    self.state = ConnectionManagerState::WaitingOnMetadata(matchbox_socket.take_channel(0).unwrap(), MetaConnectionState::Start, id);
+                    self.state = ConnectionManagerState::WaitingOnMetadata(MetaConnectionState::Start, id);
+                    self.timeout_timer.reset();
                     info!("Connection manager transitioning to waiting on metadata")
                 }
             },
-            ConnectionManagerState::WaitingOnMetadata(channel, state, id) => {
+            ConnectionManagerState::WaitingOnMetadata(state, id) => {
                 match state {
                     MetaConnectionState::Start => {
+                        let channel = matchbox_socket.channel_mut(0);
+
                         match self.role {
                             CMRole::ConfigBearer(_) => channel.send(Box::new([ROLE, CONFIG_BEARER]), *id),
                             CMRole::ConfigReciever => channel.send(Box::new([ROLE, CONFIG_RECEIVER]), *id),
                         }
 
                         info!("Connection manager transitioning to waiting on role");
+                        self.timeout_timer.reset();
                         *state = MetaConnectionState::WaitingOnRole;
                     },
                     MetaConnectionState::WaitingOnRole => {
+                        let channel = matchbox_socket.channel_mut(0);
+
                         let messages = channel.receive();
 
                         if messages.len() > 1 {
@@ -200,6 +208,7 @@ impl ConnectionManager {
                                 channel.send([&[CONFIG][..], &game_config.as_u64().to_be_bytes()[..]].concat().into(), *id);
 
                                 info!("Connection manager transitioning to waiting on OK");
+                                self.timeout_timer.reset();
                                 *state = MetaConnectionState::WaitingOnOK(game_config);
                             },
                             CMRole::ConfigReciever => {
@@ -211,11 +220,13 @@ impl ConnectionManager {
                                 }
 
                                 info!("Connection manager transitioning to waiting on config");
+                                self.timeout_timer.reset();
                                 *state = MetaConnectionState::WaitingOnConfig;
                             },
                         }
                     }
                     MetaConnectionState::WaitingOnOK(config) => {
+                        let channel = matchbox_socket.channel_mut(0);
                         let messages = channel.receive();
 
                         if messages.len() > 1 {
@@ -236,14 +247,17 @@ impl ConnectionManager {
                         }
 
                         info!("Received OK, closing meta channel");
-                        channel.close();
+                        matchbox_socket.close();
 
                         let socket = MatchboxSocket::new_ggrs(address);
-                        self.state = ConnectionManagerState::WaitingOnGGRSConnetion(socket, *config);
+                        commands.insert_resource(socket);
+                        self.state = ConnectionManagerState::WaitingOnGGRSConnetion(*config);
+                        self.timeout_timer.reset();
 
                         info!("Connection manager transitioning to waiting on ggrs connection");
                     },
                     MetaConnectionState::WaitingOnConfig => {
+                        let channel = matchbox_socket.channel_mut(0);
                         let messages = channel.receive();
 
                         if messages.len() > 1 {
@@ -275,16 +289,24 @@ impl ConnectionManager {
 
                         let config = GameConfig::from_u64(u64::from_be_bytes(config_value));
 
-                        let socket = MatchboxSocket::new_ggrs(address);
-                        self.state = ConnectionManagerState::WaitingOnGGRSConnetion(socket, config);
+                        channel.send(Box::new([OK]), *id);
+                        
+                        //matchbox_socket.close();
 
-                        info!("Connection manager transitioning to waiting on ggrs connection");
+                        let socket = MatchboxSocket::new_ggrs(address);
+                        commands.insert_resource(socket);
+                        self.state = ConnectionManagerState::WaitingOnGGRSConnetion(config);
+                        self.timeout_timer.reset();
+
+                        info!("Connection manager transitioning to waiting on ggrs connection, config: {config:?}");
                     },
                 }
             },
-            ConnectionManagerState::WaitingOnGGRSConnetion(socket, game_config) => {
-                socket.update_peers();
-                let players = socket.players();
+            ConnectionManagerState::WaitingOnGGRSConnetion(game_config) => {
+                commands.insert_resource(Time::new_with(GgrsTime::default()));
+
+                matchbox_socket.update_peers();
+                let players = matchbox_socket.players();
 
                 if players.len() < 2 {
                     return;
@@ -301,19 +323,28 @@ impl ConnectionManager {
                 }
             
                 // move the channel out of the socket (required because GGRS takes ownership of it)
-                let channel = socket.take_channel(0).unwrap();
+                let channel = matchbox_socket.take_channel(0).unwrap();
             
                 // start the GGRS session
                 let ggrs_session = session_builder
                     .start_p2p_session(channel)
                     .expect("failed to start session");
 
-                self.state = ConnectionManagerState::Ready(*game_config, Some(ggrs_session));
+                commands.insert_resource(bevy_ggrs::Session::P2P(ggrs_session));
+                commands.insert_resource(*game_config);
+
+                self.state = ConnectionManagerState::Ready;
+                self.timeout_timer.reset();
 
                 info!("Connection manager transitioing to ready");
             },
-            _ => {
+            ConnectionManagerState::Ready => {
                 info!("Connection manager finished");
+            },
+            _ => {
+                matchbox_socket.close();
+                commands.remove_resource::<MatchboxSocket<SingleChannel>>();
+                error!("Connection manager failed, closing sockets");
             }
         }
     }
@@ -328,23 +359,22 @@ pub enum WaitingLobbySet {
 #[derive(Resource, Debug, Clone, Copy)]
 pub struct RoomID(pub u32);
 
-fn start_connection_manager(mut commands: Commands, room_id: Res<RoomID>, role: Res<CMRole>) {
-    let mut cm = ConnectionManager::new(
+fn start_connection_manager(commands: Commands, room_id: Res<RoomID>, role: Res<CMRole>) {
+    let cm = ConnectionManager::new(
         "3.128.79.14:3536".into(),
         room_id.0,
         *role.into_inner()
     );
 
-    cm.start();
-
-    commands.insert_resource(cm);
+    cm.start(commands);
 }
 
 
 fn wait_for_players(
-    mut commands: Commands,
+    commands: Commands,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
+    mut matchbox_socket: ResMut<MatchboxSocket<SingleChannel>>,
     mut connection_manager: ResMut<ConnectionManager>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
@@ -353,12 +383,10 @@ fn wait_for_players(
         return;
     }
 
-    connection_manager.check_advance(time.delta());
+    connection_manager.check_advance(time.delta(), commands, &mut matchbox_socket);
 
     match connection_manager.get_state() {
-        ConnectionManagerState::Ready(conf, session) => {
-            commands.insert_resource(bevy_ggrs::Session::P2P(session.take().unwrap()));
-            commands.insert_resource(*conf);
+        ConnectionManagerState::Ready => {
             info!("Connection manager finished, entering full lobby");
             next_state.set(AppState::FullLobby);
         },
