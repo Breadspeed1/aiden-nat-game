@@ -13,7 +13,7 @@ use physics::PhysicsPlugin;
 use resources::WindowScale;
 use states::full_lobby::FullLobbyPlugin;
 use states::main_menu::MainMenuPlugin;
-use states::waiting_lobby::WaitingLobbyPlugin;
+use states::waiting_lobby::{CMRole, GameConfig, RoomID, WaitingLobbyPlugin};
 
 mod args;
 mod components;
@@ -70,6 +70,10 @@ fn main() {
         .rollback_component_with_copy::<Player>()
         .rollback_component_with_clone::<CoyoteTime>()
         .init_ggrs_state::<MultiplayerGameState>()
+        .add_systems(OnExit(AppState::FullLobby), remove_multiplayer_resources)
+        .add_systems(OnEnter(AppState::CreateGameMenu), add_bearer_role)
+        .add_systems(OnEnter(AppState::JoinGameMenu), add_receive_role)
+        .insert_resource(RoomID(20))
         .run();
 }
 
@@ -93,6 +97,24 @@ pub enum MultiplayerGameState {
     #[default]
     Idle,
     InLobby,
+}
+
+fn remove_multiplayer_resources(mut commands: Commands) {
+    commands.remove_resource::<GameConfig>();
+    commands.remove_resource::<CMRole>();
+}
+
+fn add_receive_role(mut commands: Commands, mut next_state: ResMut<NextState<AppState>>) {
+    commands.insert_resource::<CMRole>(CMRole::ConfigReciever);
+    next_state.set(AppState::WaitingInLobby);
+}
+
+fn add_bearer_role(mut commands: Commands, mut next_state: ResMut<NextState<AppState>>) {
+    commands.insert_resource::<CMRole>(CMRole::ConfigBearer(GameConfig {
+        seed: 10,
+        difficulty: 1
+    }));
+    next_state.set(AppState::WaitingInLobby);
 }
 
 fn setup(mut commands: Commands) {

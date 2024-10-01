@@ -2,7 +2,7 @@ use std::{cmp::Ordering, time::Duration};
 
 use bevy::prelude::*;
 
-use crate::AppState;
+use crate::{despawn_all_but_camera, AppState};
 
 const MENU_BUTTONS: usize = 4;
 const MENU_BUTTON_MOVE_TIME: f32 = 0.25;
@@ -15,7 +15,10 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             OnEnter(AppState::MainMenu),
-            (setup).in_set(MainMenuSet::Setup),
+            (
+                despawn_all_but_camera,
+                setup
+            ).chain().in_set(MainMenuSet::Setup),
         )
         .add_systems(
             Update,
@@ -68,8 +71,8 @@ impl MainMenuManager {
     fn get_state_for_selected(&self) -> Option<AppState> {
         match self.selected_button {
             //TODO: change
-            0 => Some(AppState::WaitingInLobby),
-            1 => None,
+            0 => Some(AppState::CreateGameMenu),
+            1 => Some(AppState::JoinGameMenu),
             2 => None,
             3 => None,
             _ => None
@@ -288,8 +291,8 @@ fn read_keyboard(mut manager: ResMut<MainMenuManager>, keys: Res<ButtonInput<Key
         }
     }
     else if keys.any_just_pressed([KeyCode::KeyW, KeyCode::KeyA]) {
-        manager.increment();
-    } else if keys.any_just_pressed([KeyCode::KeyS, KeyCode::KeyD]) {
         manager.decrement();
+    } else if keys.any_just_pressed([KeyCode::KeyS, KeyCode::KeyD]) {
+        manager.increment();
     }
 }

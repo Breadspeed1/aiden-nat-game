@@ -10,6 +10,7 @@ bevy_matchbox = { version = "0.10.0", features = ["ggrs"] }
 bevy_roll_safe = "0.3.0"
 clap = { version = "4.5.18", features = ["derive"] }
 enum-ordinalize = "4.3.0"
+rand = "0.8.5"
 
 [profile.dev.package."*"]
 opt-level = 2

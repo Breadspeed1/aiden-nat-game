@@ -18,3 +18,6 @@ impl WindowScale {
         self.0
     }
 }
+
+#[derive(Debug, Resource)]
+pub struct Seed(pub Option<u32>);
