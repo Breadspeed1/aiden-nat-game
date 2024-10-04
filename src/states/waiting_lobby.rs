@@ -4,8 +4,8 @@ use crate::components::{CoyoteTime, Platform, Player, Vine};
 use crate::physics::{Collider, Gravity, PhysicsSet, Solid, Velocity};
 use bevy::prelude::*;
 use bevy_ggrs::{ggrs, AddRollbackCommandExtension, GgrsTime};
-use bevy_matchbox::prelude::{PeerId, SingleChannel};
-use bevy_matchbox::MatchboxSocket;
+use bevy_matchbox::prelude::{ChannelConfig, MultipleChannels, PeerId, SingleChannel, WebRtcSocketBuilder};
+use bevy_matchbox::{CloseSocketExt, MatchboxSocket, OpenSocketExt};
 
 use crate::{despawn_all_but_camera, AppState, Config};
 
@@ -71,6 +71,7 @@ enum ConnectionManagerState {
     Ready,
     TimedOut,
     InvalidConnection,
+    EmptyLobby
 }
 
 #[derive(Debug, Resource, Clone, Copy)]
@@ -126,8 +127,11 @@ impl ConnectionManager {
 
     fn start(mut self, mut commands: Commands) {
         if matches!(self.state, ConnectionManagerState::PreConnect) {
-            let meta_conn = MatchboxSocket::new_reliable(&self.address);
-            commands.insert_resource(meta_conn);
+            let socket = WebRtcSocketBuilder::new(&self.address)
+                .add_reliable_channel()
+                .add_ggrs_channel();
+
+            commands.open_socket(socket);
             self.state = ConnectionManagerState::WaitingOnMetaConnection;
             commands.insert_resource(self);
             info!("Connection manager transitioning to waiting on metadata connection");
@@ -144,7 +148,7 @@ impl ConnectionManager {
         &mut self,
         dur: Duration,
         mut commands: Commands,
-        matchbox_socket: &mut MatchboxSocket<SingleChannel>,
+        matchbox_socket: &mut MatchboxSocket<MultipleChannels>,
     ) {
         self.timeout_timer.tick(dur);
 
@@ -262,10 +266,6 @@ impl ConnectionManager {
                         }
 
                         info!("Received OK, closing meta channel");
-                        matchbox_socket.close();
-
-                        let socket = MatchboxSocket::new_ggrs(address);
-                        commands.insert_resource(socket);
                         self.state = ConnectionManagerState::WaitingOnGGRSConnetion(*config);
                         self.timeout_timer.reset();
 
@@ -306,10 +306,6 @@ impl ConnectionManager {
 
                         channel.send(Box::new([OK]), *id);
 
-                        //matchbox_socket.close();
-
-                        let socket = MatchboxSocket::new_ggrs(address);
-                        commands.insert_resource(socket);
                         self.state = ConnectionManagerState::WaitingOnGGRSConnetion(config);
                         self.timeout_timer.reset();
 
@@ -338,7 +334,7 @@ impl ConnectionManager {
                 }
 
                 // move the channel out of the socket (required because GGRS takes ownership of it)
-                let channel = matchbox_socket.take_channel(0).unwrap();
+                let channel = matchbox_socket.take_channel(1).unwrap();
 
                 // start the GGRS session
                 let ggrs_session = session_builder
@@ -384,7 +380,7 @@ fn wait_for_players(
     commands: Commands,
     time: Res<Time>,
     keys: Res<ButtonInput<KeyCode>>,
-    mut matchbox_socket: ResMut<MatchboxSocket<SingleChannel>>,
+    mut matchbox_socket: ResMut<MatchboxSocket<MultipleChannels>>,
     mut connection_manager: ResMut<ConnectionManager>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {

@@ -5,8 +5,8 @@ use bevy::window::EnabledButtons;
 use bevy::{prelude::*, window::WindowResolution};
 use bevy_ggrs::*;
 use bevy_matchbox::matchbox_socket::PeerId;
-use bevy_matchbox::prelude::SingleChannel;
-use bevy_matchbox::MatchboxSocket;
+use bevy_matchbox::prelude::{MultipleChannels, SingleChannel};
+use bevy_matchbox::{CloseSocketExt, MatchboxSocket};
 use bevy_roll_safe::RollApp;
 use clap::Parser;
 use components::{CoyoteTime, Player};
@@ -110,10 +110,10 @@ pub enum MultiplayerGameState {
 }
 
 fn remove_multiplayer_resources(mut commands: Commands) {
+    commands.close_socket::<MultipleChannels>();
     commands.remove_resource::<GameConfig>();
     commands.remove_resource::<CMRole>();
     commands.remove_resource::<bevy_ggrs::Session<Config>>();
-    commands.remove_resource::<MatchboxSocket<SingleChannel>>();
     info!("Removed multiplayer resources");
 }
 
