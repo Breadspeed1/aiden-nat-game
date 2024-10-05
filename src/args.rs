@@ -1,9 +1,13 @@
-use bevy::prelude::Resource;
-use clap::Parser;
 
-#[derive(Parser, Debug, Resource, Clone)]
-pub struct Args {
-    /// runs the game in synctest mode
-    #[clap(long)]
-    pub synctest: bool,
+#[derive(PartialEq, Debug, clap::Parser)]
+pub enum Args {
+    ClientAndServer {
+        #[arg(short, long, default_value = None)]
+        client_id: Option<u64>
+    },
+    Server,
+    Client {
+        #[arg(short, long, default_value = None)]
+        client_id: Option<u64>
+    }
 }
